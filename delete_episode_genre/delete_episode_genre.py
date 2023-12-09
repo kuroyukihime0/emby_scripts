@@ -98,4 +98,4 @@ if __name__ == '__main__':
             serie_id = serie['Id']
             remove_genre_for_episodes(serie_id)
 
-        print(f'**更新成功{process_count}条')
+    print(f'**更新成功{process_count}条')

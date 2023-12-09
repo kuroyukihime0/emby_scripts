@@ -45,21 +45,21 @@ def remove_genre_for_episodes(parent_id):
     genres_items = series['GenreItems']
     need_replace = False
     for genre in genres:
-        if genre in genre_mapping:
+        if genre in genre_mapping or genre in genre_remove:
             need_replace = True
     for genre_item in genres_items:
         if genre_item['Name'] in genre_mapping:
             need_replace = True
 
     if need_replace:
-        print(f'{series["Name"]} 需要替换Genre')
-        print(series['Genres'])
-        series['Genres'] = [genre_mapping[genre]['Name']
-                            if genre in genre_mapping else genre for genre in genres]
+        print(f'{series["Name"]}:')
+        genres_new = [genre_mapping[genre]['Name']
+                      if genre in genre_mapping else genre for genre in genres]
+        genres_new = list(
+            filter(lambda genre: genre not in genre_remove, genres_new))
+        print('   '+str(series['Genres'])+"-->"+str(genres_new))
+        series['Genres'] = genres_new
 
-        series['Genres'] = list(
-            filter(lambda genre: genre not in genre_remove, series['Genres']))
-        print("-->"+series['Genres'])
         series['GenreItems'] = [genre_mapping[genre_item['Name']] if genre_item['Name']
                                 in genre_mapping else genre_item for genre_item in genres_items]
         series['GenreItems'] = list(
@@ -101,4 +101,4 @@ if __name__ == '__main__':
             serie_id = serie['Id']
             remove_genre_for_episodes(serie_id)
 
-        print(f'**更新成功{process_count}条')
+    print(f'**更新成功{process_count}条')
