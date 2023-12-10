@@ -36,6 +36,7 @@ process_count = 0
 
 
 def remove_genre_for_episodes(parent_id):
+    global process_count
     # 获取剧集列表
     params = {'Ids': parent_id}
     series_detail = session.get(

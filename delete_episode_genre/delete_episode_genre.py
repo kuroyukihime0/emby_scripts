@@ -25,6 +25,7 @@ process_count = 0
 
 
 def remove_genre_for_episodes(parent_id):
+    global process_count
     # 获取剧集列表
     params = {'ParentId': parent_id}
     response = session.get(f'{EMBY_SERVER}/emby/Items',
