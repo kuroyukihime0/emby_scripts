@@ -70,7 +70,11 @@ class TmdbDataBase(JsonDataBase):
         data = self.data.get(tmdb_id)
         if not data:
             return
-        air_date = parser.parse(data['premiere_date']).date()
+        air_date = datetime.date.today()
+        try:
+            air_date = parser.parse(data['premiere_date']).date()
+        except Exception as ex:
+            pass
         today = datetime.date.today()
         if air_date + datetime.timedelta(days=90) > today:
             expire_day = 15
