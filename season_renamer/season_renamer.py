@@ -118,8 +118,9 @@ def get_or_default(_dict, key, default=None):
 tmdb_db = TmdbDataBase('tmdb')
 
 
-def get_season_info_from_tmdb(tmdb_id):
-    cache_data = tmdb_db[tmdb_id]
+def get_season_info_from_tmdb(tmdb_id, is_movie):
+    cache_key = ('mv' if is_movie else 'tv') + f'{tmdb_id}'
+    cache_data = tmdb_db[cache_key]
     if cache_data:
         alt_names = cache_data['seasons']
         return alt_names, True
@@ -136,7 +137,7 @@ def get_season_info_from_tmdb(tmdb_id):
             resp_json, 'last_air_date', default=get_or_default(resp_json, 'first_air_date'))
         alt_names = get_or_default(
             titles, "results", None)
-        tmdb_db.save_seasons(tmdb_id, premiere_date=release_date,
+        tmdb_db.save_seasons(cache_key, premiere_date=release_date,
                              name=serie_name, alt_names=alt_names, seasons=resp_json['seasons'])
         return resp_json['seasons'], False
     else:
@@ -144,17 +145,17 @@ def get_season_info_from_tmdb(tmdb_id):
         return None, None
 
 
-def rename_seasons(parent_id, tmdb_id):
+def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
     global process_count
     # 获取剧集列表
     params = {'ParentId': parent_id}
     response = session.get(f'{EMBY_SERVER}/emby/Items',
                            headers=headers, params=params)
 
-    tmdb_seasons, is_cache = get_season_info_from_tmdb(tmdb_id)
+    tmdb_seasons, is_cache = get_season_info_from_tmdb(tmdb_id, is_movie)
     from_cache = ' fromcache ' if is_cache else ''
     if not tmdb_seasons:
-        log.error(f'   no season found in tmdb:{tmdb_id}')
+        log.error(f'   no season found in tmdb:{tmdb_id} {series_name}')
         return
     seasons = response.json()['Items']
     for season in seasons:
@@ -220,10 +221,11 @@ if __name__ == '__main__':
         for serie in series:
             serie_id = serie['Id']
             serie_name = serie['Name']
+            is_movie = serie['Type'] == 'Movie'
             tmdb_id = ''
             if 'ProviderIds' in serie and 'Tmdb' in serie['ProviderIds']:
                 tmdb_id = serie['ProviderIds']['Tmdb']
-                rename_seasons(serie_id, tmdb_id)
+                rename_seasons(serie_id, tmdb_id, serie_name, is_movie)
             else:
                 log.error(f'error:{serie_name} has no tmdb id, skip')
 
