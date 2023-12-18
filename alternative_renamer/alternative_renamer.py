@@ -124,7 +124,7 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
         "accept": "application/json",
         "Authorization": f"Bearer {TMDB_KEY}"
     }
-    response = requests.get(url, headers=headers)
+    response = session.get(url, headers=headers)
     resp_json = response.json()
     if "alternative_titles" in resp_json:
         titles = resp_json["alternative_titles"]
