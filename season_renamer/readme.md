@@ -1,7 +1,7 @@
 ## season_renamer
 
 批量刮削TMDB季名  
-可以直接使用alternative_renamer.py的缓存来刮削*(tmdb.json)
+可以直接使用alternative_renamer.py的缓存来刮削*(tmdb.json)  
 需要填写 Emby服务器地址, API 密钥, USER_ID, 需要修改的库名,TMDB API KEY, 具体以文件开头注释为准  
 
 效果预览:  
