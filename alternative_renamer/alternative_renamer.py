@@ -141,20 +141,20 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
 
 def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
     global process_count
-    tmdb_alt_name,is_cache = get_alt_name_info_from_tmdb(
+    tmdb_alt_name, is_cache = get_alt_name_info_from_tmdb(
         tmdb_id, serie_name, is_movie=is_movie)
     from_cache = ' fromcache ' if is_cache else ''
     if not tmdb_alt_name:
         log.error(f'   no result found in tmdb:{serie_name}')
         return
 
-    alt_name = [x['title'] for x in tmdb_alt_name if x["iso_3166_1"] == "CN"]
+    tmdb_alt_name = [x['title']
+                     for x in tmdb_alt_name if x["iso_3166_1"] == "CN"]
 
-    if len(alt_name) == 0:
+    if len(tmdb_alt_name) == 0:
         log.info(f'   {serie_name} {from_cache} 没有别名 跳过')
         return
 
-    tmdb_alt_name = tmdb_alt_name
     name_spliter = ' / '
     item_response = session.get(
         f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers, params=params)
@@ -169,12 +169,13 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
 
     if 'SortName' in item:
         old_names = item['SortName'].split(name_spliter)
-        for old_name in old_names:
-            if old_name not in alt_name:
-                alt_name.insert(0, old_name)
+        res = old_names[:]
+        for new_name in tmdb_alt_name:
+            if new_name not in res:
+                res.append(new_name)
 
-        sort_name_all = name_spliter.join(alt_name)
-        if old_names == alt_name:
+        sort_name_all = name_spliter.join(res)
+        if old_names == res:
             log.info(f'   {series_name} {from_cache} 别名没有增删 跳过')
             return
         else:
