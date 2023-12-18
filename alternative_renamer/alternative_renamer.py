@@ -118,10 +118,11 @@ tmdb_db = TmdbDataBase('tmdb')
 
 
 def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
-    cache_data = tmdb_db[tmdb_id]
-    if cache_data:
+    cache_key = ('mv' if is_movie else 'tv') + f'{tmdb_id}'
+    cache_data = tmdb_db[cache_key]
+    if cache_data and 'alt_names' in cache_data:
         alt_names = cache_data['alt_names']
-        return alt_names,True
+        return alt_names, True
 
     url = f"https://api.themoviedb.org/3/{'movie' if is_movie else 'tv'}/{tmdb_id}?append_to_response=alternative_titles&language=zh-CN"
     headers = {
@@ -136,11 +137,14 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
             resp_json, 'last_air_date', default=get_or_default(resp_json, 'first_air_date'))
         alt_names = get_or_default(
             titles, "titles" if is_movie else "results", None)
+        if not alt_names:
+            log.error(f'   alt names missing in tmdb:{serie_name} {resp_json}')
         tmdb_db.save_alt_name(
-            tmdb_id, premiere_date=release_date, name=serie_name, alt_names=alt_names,seasons=get_or_default(resp_json, 'seasons'))
-        return alt_names,False
+            cache_key, premiere_date=release_date, name=serie_name, alt_names=alt_names, seasons=get_or_default(resp_json, 'seasons'))
+        return alt_names, False
     else:
-        return None,None
+        log.error(f'   no result found in tmdb:{serie_name} {resp_json}')
+        return None, None
 
 
 def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
