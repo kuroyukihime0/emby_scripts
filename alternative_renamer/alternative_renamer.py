@@ -21,7 +21,7 @@ DRY_RUN = True
 log= logging.getLogger('alt_renamer') 
 log.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s %(levelname)s:  %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
-fh = logging.FileHandler('alt_renamer.log')
+fh = logging.FileHandler('alt_renamer.log', encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 ch = logging.StreamHandler()
