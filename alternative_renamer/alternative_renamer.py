@@ -167,7 +167,7 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
 
     name_spliter = ' / '
     item_response = session.get(
-        f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers, params=params)
+        f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers)
     item = item_response.json()
     # if name_spliter in item['OriginalTitle']:
     #     log.info(item['OriginalTitle'])
