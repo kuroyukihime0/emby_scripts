@@ -6,7 +6,7 @@ from dateutil import parser
 import datetime
 
 # 设置 Emby 服务器地址
-EMBY_SERVER = 'http://xxx:8096' 
+EMBY_SERVER = 'http://xxx:8096'
 # 设置 Emby 服务器APIKEY和userid
 API_KEY = ''
 USER_ID = ''
@@ -18,9 +18,10 @@ LIB_NAME = ''
 DRY_RUN = True
 
 
-log= logging.getLogger('alt_renamer') 
+log = logging.getLogger('alt_renamer')
 log.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s %(levelname)s:  %(message)s',datefmt='%Y-%m-%d %H:%M:%S')
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s:  %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 fh = logging.FileHandler('alt_renamer.log', encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
@@ -38,6 +39,7 @@ headers = {
 session = requests.session()
 
 process_count = 0
+
 
 class JsonDataBase:
     def __init__(self, name, prefix='', db_type='dict', workdir=None):
@@ -99,7 +101,7 @@ class TmdbDataBase(JsonDataBase):
                      datetime.date.fromisoformat(info['update_date']) + expire_days > today}
         self.save()
 
-    def save_alt_name(self, tmdb_id, premiere_date, name, alt_names,seasons = None):
+    def save_alt_name(self, tmdb_id, premiere_date, name, alt_names, seasons=None):
         self.data[tmdb_id] = {
             'premiere_date': premiere_date,
             'name': name,
@@ -218,15 +220,27 @@ def get_library_id(name):
     return lib_id[0] if lib_id else None
 
 
+def get_lib_items(parent_id):
+    params = {'ParentId': parent_id,
+              #   'HasTmdbId': True,
+              'fields': 'ProviderIds'
+              }
+    response = session.get(f'{EMBY_SERVER}/emby/Items',
+                           headers=headers, params=params)
+    items = response.json()['Items']
+    items_folder = [item for item in items if item["Type"] == "Folder"]
+    items = [item for item in items if item["Type"] != "Folder"]
+    for folder in items_folder:
+        items = items + get_lib_items(folder['Id'])
+
+    return items
+
+
 if __name__ == '__main__':
     libs = LIB_NAME.split(',')
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
-        params = {'ParentId': parent_id, 'HasTmdbId': True,
-                  'fields': 'ProviderIds'}
-        response = session.get(f'{EMBY_SERVER}/emby/Items',
-                               headers=headers, params=params)
-        items = response.json()['Items']
+        items = get_lib_items(parent_id)
         log.info(f'**库 {lib_name} 中共有{len(items)} 个Item，开始处理')
 
         for item in items:

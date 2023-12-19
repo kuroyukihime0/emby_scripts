@@ -207,15 +207,27 @@ def get_library_id(name):
     return lib_id[0] if lib_id else None
 
 
+def get_lib_items(parent_id):
+    params = {'ParentId': parent_id,
+              #   'HasTmdbId': True,
+              'fields': 'ProviderIds'
+              }
+    response = session.get(f'{EMBY_SERVER}/emby/Items',
+                           headers=headers, params=params)
+    items = response.json()['Items']
+    items_folder = [item for item in items if item["Type"] == "Folder"]
+    items = [item for item in items if item["Type"] != "Folder"]
+    for folder in items_folder:
+        items = items + get_lib_items(folder['Id'])
+
+    return items
+
+
 if __name__ == '__main__':
     libs = LIB_NAME.split(',')
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
-        params = {'ParentId': parent_id, 'HasTmdbId': True,
-                  'fields': 'ProviderIds'}
-        response = session.get(f'{EMBY_SERVER}/emby/Items',
-                               headers=headers, params=params)
-        series = response.json()['Items']
+        series = get_lib_items(parent_id)
         log.info(f'**库 {lib_name} 中共有{len(series)} 个剧集，开始处理')
 
         for serie in series:
