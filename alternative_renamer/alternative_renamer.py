@@ -139,8 +139,8 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
             resp_json, 'last_air_date', default=get_or_default(resp_json, 'first_air_date'))
         alt_names = get_or_default(
             titles, "titles" if is_movie else "results", None)
-        if not alt_names:
-            log.error(f'   alt names missing in tmdb:{serie_name} {resp_json}')
+        # if not alt_names:
+        #     log.error(f'   alt names missing in tmdb:{serie_name} {resp_json}')
         tmdb_db.save_alt_name(
             cache_key, premiere_date=release_date, name=serie_name, alt_names=alt_names, seasons=get_or_default(resp_json, 'seasons'))
         return alt_names, False
@@ -149,13 +149,30 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
         return None, None
 
 
+arr_invalid_char = ['ā', 'á',  'ǎ', 'à',
+                    'ē', 'é', 'ě', 'è',
+                    'ī', 'í', 'ǐ', 'ì',
+                    'ō', 'ó', 'ǒ', 'ò',
+                    'ū', 'ú', 'ǔ', 'ù ',
+                    'ǖ', 'ǘ', 'ǚ', 'ǜ',
+                    'デ', 'ô', 'â', 'Ś', 'ü', 'É']
+
+
+def invalid_char_in_str(name):
+    exist = False
+    for invalid_char in arr_invalid_char:
+        if invalid_char in name:
+            exist = True
+            break
+    return exist
+
+
 def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
     global process_count
     tmdb_alt_name, is_cache = get_alt_name_info_from_tmdb(
         tmdb_id, serie_name, is_movie=is_movie)
     from_cache = ' fromcache ' if is_cache else ''
     if not tmdb_alt_name:
-        log.error(f'   no result found in tmdb:{serie_name}')
         return
 
     tmdb_alt_name = [x['title']
@@ -169,20 +186,19 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
     item_response = session.get(
         f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers)
     item = item_response.json()
-    # if name_spliter in item['OriginalTitle']:
-    #     log.info(item['OriginalTitle'])
-    # if name_spliter in item['SortName']:
-    #     log.info(item['SortName'])
-    # return
 
     series_name = item['Name']
 
     if 'SortName' in item:
         old_names = item['SortName'].split(name_spliter)
-        res = old_names[:]
+        res = []
+        for old_name in old_names:
+            if old_name not in res:
+                res.append(old_name)
         for new_name in tmdb_alt_name:
             if new_name not in res:
-                res.append(new_name)
+                if not invalid_char_in_str(new_name):
+                    res.append(new_name)
 
         sort_name_all = name_spliter.join(res)
         if old_names == res:
@@ -196,8 +212,9 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
         # item['ForcedSortName'] = item['Name']
         if 'LockedFields' not in item:
             item['LockedFields'] = []
-        if 'Name' not in item['LockedFields']:
+        if 'SortName' not in item['LockedFields']:
             item['LockedFields'].append('SortName')
+
         if not DRY_RUN:
             update_url = f'{EMBY_SERVER}/emby/Items/{parent_id}?api_key={API_KEY}&reqformat=json'
             response = session.post(update_url, json=item, headers=headers)
@@ -241,7 +258,8 @@ if __name__ == '__main__':
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
         items = get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有{len(items)} 个Item，开始处理')
+
+        log.info(f'**库 {lib_name} 中共有{len(items)} 个Item, 开始处理')
 
         for item in items:
             item_id = item['Id']
