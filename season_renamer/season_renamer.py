@@ -162,6 +162,9 @@ def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
         seaeson_id = season['Id']
         season_name = season['Name']
         series_name = season['SeriesName']
+        if 'IndexNumber' not in season:
+            log.info(f'   {series_name} {season_name} 没有编号,跳过')
+            continue
         season_index = season['IndexNumber']
         tmdb_season = tmdb_seasons
         tmdb_season = next(
