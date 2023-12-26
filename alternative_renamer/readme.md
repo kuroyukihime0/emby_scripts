@@ -1,6 +1,6 @@
 ## alternative_renamer
 
-批量增加电影和剧集的别名到SortName, 帮助检索  
+批量增加电影和剧集的别名到SortName, 帮助检索(*建议搭配小秘搜索补丁食用)  
 需要填写 Emby服务器地址, API 密钥, USER_ID, 需要修改的库名,TMDB API KEY, 具体以文件开头注释为准  
 
 效果预览:  
