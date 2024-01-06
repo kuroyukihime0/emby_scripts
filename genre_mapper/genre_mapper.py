@@ -1,18 +1,19 @@
 import requests
 import json
 
-# 设置 Emby 服务器地址和 API 密钥
-EMBY_SERVER = 'http://xxx:8096'
-# 设置 API 密钥
-API_KEY = ''
-# 设置 USERID
-USER_ID = ''
+config = {
+    # 设置 Emby 服务器地址
+    'EMBY_SERVER' :'http://xxx:8096',
+    # 设置 Emby 服务器APIKEY和userid
+    'API_KEY' : '',
+    'USER_ID' : '',
+    # 库名, 多个时英文逗号分隔, 只支持剧集/电影库
+    'LIB_NAME' : '',
+    # True 时为预览效果, False 实际写入
+    'DRY_RUN' : True,
+}
 
-# 设置库名, 多个时用,隔开
-LIB_NAME = 'A,B'
 
-# True 时为测试, False 实际写入
-DRY_RUN = True
 # 需要替换的Genre
 genre_mapping = {
     'Sci-Fi & Fantasy': {
@@ -24,13 +25,13 @@ genre_mapping = {
 genre_remove = ['']
 
 
-headers = {
-    'X-Emby-Token': API_KEY,
+def emby_headers(): 
+    return {
+    'X-Emby-Token': config['API_KEY'],
     'Content-Type': 'application/json',
 }
 
 session = requests.session()
-
 
 process_count = 0
 
@@ -40,7 +41,7 @@ def remove_genre_for_episodes(parent_id):
     # 获取剧集列表
     params = {'Ids': parent_id}
     series_detail = session.get(
-        f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers, params=params)
+        f"{config['EMBY_SERVER']}/emby/Users/{config['USER_ID']}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={config['API_KEY']}", headers=emby_headers(), params=params)
     series = series_detail.json()
     genres = series['Genres']
     genres_items = series['GenreItems']
@@ -65,10 +66,10 @@ def remove_genre_for_episodes(parent_id):
                                 in genre_mapping else genre_item for genre_item in genres_items]
         series['GenreItems'] = list(
             filter(lambda genre_item: genre_item['Name'] not in genre_remove, series['GenreItems']))
-        if not DRY_RUN:
-            update_url = f'{EMBY_SERVER}/emby/Items/{parent_id}?api_key={API_KEY}&reqformat=json'
+        if not config['DRY_RUN']:
+            update_url = f"{config['EMBY_SERVER']}/emby/Items/{parent_id}?api_key={config['API_KEY']}&reqformat=json"
             response = session.post(
-                update_url, json=series, headers=headers)
+                update_url, json=series, headers=emby_headers())
             if response.status_code == 200 or response.status_code == 204:
                 process_count += 1
                 print(
@@ -82,7 +83,7 @@ def get_library_id(name):
     if not name:
         return
     res = session.get(
-        f'{EMBY_SERVER}/emby/Library/VirtualFolders', headers=headers)
+        f"{config['EMBY_SERVER']}/emby/Library/VirtualFolders", headers=emby_headers())
     lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
     if not lib_id:
         raise KeyError(f'library: {name} not exists, check it')
@@ -94,8 +95,8 @@ def get_lib_items(parent_id):
               #   'HasTmdbId': True,
               'fields': 'ProviderIds'
               }
-    response = session.get(f'{EMBY_SERVER}/emby/Items',
-                           headers=headers, params=params)
+    response = session.get(f"{config['EMBY_SERVER']}/emby/Items",
+                           headers=emby_headers(), params=params)
     items = response.json()['Items']
     items_folder = [item for item in items if item["Type"] == "Folder"]
     items = [item for item in items if item["Type"] != "Folder"]
@@ -104,9 +105,8 @@ def get_lib_items(parent_id):
 
     return items
 
-
-if __name__ == '__main__':
-    libs = LIB_NAME.split(',')
+def run_mapper():
+    libs = config['LIB_NAME'].split(',')
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
         series = get_lib_items(parent_id)
@@ -116,3 +116,7 @@ if __name__ == '__main__':
             remove_genre_for_episodes(serie_id)
 
     print(f'**更新成功{process_count}条')
+
+if __name__ == '__main__':
+    run_mapper()
+    

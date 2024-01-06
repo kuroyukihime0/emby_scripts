@@ -102,7 +102,7 @@ def get_lib_items(parent_id):
     return items
 
 
-if __name__ == '__main__':
+def run_deleter():
     libs = LIB_NAME.split(',')
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
@@ -113,3 +113,7 @@ if __name__ == '__main__':
             remove_genre_for_episodes(serie_id)
 
     print(f'**更新成功{process_count}条')
+
+if __name__ == '__main__':
+    run_deleter()
+    

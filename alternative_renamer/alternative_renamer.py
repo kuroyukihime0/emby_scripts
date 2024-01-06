@@ -5,24 +5,28 @@ import logging
 from dateutil import parser
 import datetime
 
-# 设置 Emby 服务器地址
-EMBY_SERVER = 'http://xxx:8096'
-# 设置 Emby 服务器APIKEY和userid
-API_KEY = ''
-USER_ID = ''
-# 设置 TMDB_KEY
-TMDB_KEY = ''
-# 库名, 多个时英文逗号分隔, 只支持剧集/电影库
-LIB_NAME = ''
-# True 时为预览效果, False 实际写入
-DRY_RUN = True
+config = {
+    # 设置 Emby 服务器地址
+    'EMBY_SERVER' :'http://xxx:8096',
+    # 设置 Emby 服务器APIKEY和userid
+    'API_KEY' : '',
+    'USER_ID' : '',
+    # 设置 TMDB_KEY
+    'TMDB_KEY' : '',
+    # 库名, 多个时英文逗号分隔, 只支持剧集/电影库
+    'LIB_NAME' : '',
+    # True 时为预览效果, False 实际写入
+    'DRY_RUN' : True,
+}
 
+if not os.path.exists('logs'):
+    os.makedirs('logs')
 
 log = logging.getLogger('alt_renamer')
 log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     '%(asctime)s %(levelname)s:  %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-fh = logging.FileHandler('alt_renamer.log', encoding='utf-8')
+fh = logging.FileHandler('logs.log', encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 ch = logging.StreamHandler()
@@ -31,8 +35,9 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.addHandler(fh)
 
-headers = {
-    'X-Emby-Token': API_KEY,
+def emby_headers(): 
+    return {
+    'X-Emby-Token': config['API_KEY'],
     'Content-Type': 'application/json',
 }
 
@@ -54,7 +59,7 @@ class JsonDataBase:
             with open(self.file_path, encoding=encoding) as f:
                 _json = json.load(f)
         except (FileNotFoundError, ValueError):
-            log.error(f'{self.file_name} not exist, return {self.db_type}')
+            # log.info(f'{self.file_name} not exist, return {self.db_type}')
             return dict(list=[], dict={})[self.db_type]
         else:
             return _json
@@ -116,7 +121,7 @@ def get_or_default(_dict, key, default=None):
     return _dict[key] if key in _dict else default
 
 
-tmdb_db = TmdbDataBase('tmdb')
+tmdb_db = TmdbDataBase('tmdb_alt_name')
 
 
 def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
@@ -127,11 +132,10 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
         return alt_names, True
 
     url = f"https://api.themoviedb.org/3/{'movie' if is_movie else 'tv'}/{tmdb_id}?append_to_response=alternative_titles&language=zh-CN"
-    headers = {
+    response = session.get(url, headers={
         "accept": "application/json",
-        "Authorization": f"Bearer {TMDB_KEY}"
-    }
-    response = session.get(url, headers=headers)
+        "Authorization": f"Bearer {config['TMDB_KEY']}"
+    })
     resp_json = response.json()
     if "alternative_titles" in resp_json:
         titles = resp_json["alternative_titles"]
@@ -184,7 +188,7 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
 
     name_spliter = ' / '
     item_response = session.get(
-        f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers)
+        f"{config['EMBY_SERVER']}/emby/Users/{config['USER_ID']}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={config['API_KEY']}", headers=emby_headers())
     item = item_response.json()
 
     series_name = item['Name']
@@ -215,9 +219,9 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
         if 'SortName' not in item['LockedFields']:
             item['LockedFields'].append('SortName')
 
-        if not DRY_RUN:
-            update_url = f'{EMBY_SERVER}/emby/Items/{parent_id}?api_key={API_KEY}&reqformat=json'
-            response = session.post(update_url, json=item, headers=headers)
+        if not config['DRY_RUN']:
+            update_url = f"{config['EMBY_SERVER']}/emby/Items/{parent_id}?api_key={config['API_KEY']}&reqformat=json"
+            response = session.post(update_url, json=item, headers=emby_headers())
             if response.status_code == 200 or response.status_code == 204:
                 process_count += 1
                 # log.info(f'      Successfully updated {series_name} {season_name} : {response.status_code} {response.content}')
@@ -230,7 +234,7 @@ def get_library_id(name):
     if not name:
         return
     res = session.get(
-        f'{EMBY_SERVER}/emby/Library/VirtualFolders', headers=headers)
+        f"{config['EMBY_SERVER']}/emby/Library/VirtualFolders", headers=emby_headers())
     lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
     if not lib_id:
         raise KeyError(f'library: {name} not exists, check it')
@@ -242,8 +246,8 @@ def get_lib_items(parent_id):
               #   'HasTmdbId': True,
               'fields': 'ProviderIds'
               }
-    response = session.get(f'{EMBY_SERVER}/emby/Items',
-                           headers=headers, params=params)
+    response = session.get(f"{config['EMBY_SERVER']}/emby/Items",
+                           headers=emby_headers(), params=params)
     items = response.json()['Items']
     items_folder = [item for item in items if item["Type"] == "Folder"]
     items = [item for item in items if item["Type"] != "Folder"]
@@ -253,8 +257,8 @@ def get_lib_items(parent_id):
     return items
 
 
-if __name__ == '__main__':
-    libs = LIB_NAME.split(',')
+def run_renameer():
+    libs = config['LIB_NAME'].split(',')
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
         items = get_lib_items(parent_id)
@@ -272,3 +276,6 @@ if __name__ == '__main__':
                 log.info(f'error:{item_name} has no tmdb id, skip')
 
     log.info(f'**更新成功{process_count}条')
+
+if __name__ == '__main__':
+    run_renameer()

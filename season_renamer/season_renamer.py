@@ -5,23 +5,25 @@ import logging
 from dateutil import parser
 import datetime
 
-# 设置 Emby 服务器地址
-EMBY_SERVER = 'http://xxx:8096'
-# 设置 Emby 服务器APIKEY和userid
-API_KEY = ''
-USER_ID = ''
-# 设置 TMDB_KEY
-TMDB_KEY = ''
-# 库名, 多个时英文逗号分隔, 只支持剧集库, 填写电影后果自负
-LIB_NAME = ''
-# True 时为测试, False 实际写入
-DRY_RUN = True
+config = {
+    # 设置 Emby 服务器地址
+    'EMBY_SERVER' :'http://xxx:8096',
+    # 设置 Emby 服务器APIKEY和userid
+    'API_KEY' : '',
+    'USER_ID' : '',
+    # 设置 TMDB_KEY
+    'TMDB_KEY' : '',
+    # 库名, 多个时英文逗号分隔, 只支持剧集/电影库
+    'LIB_NAME' : '',
+    # True 时为预览效果, False 实际写入
+    'DRY_RUN' : True,
+}
 
 log = logging.getLogger('season_renamer')
 log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     '%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-fh = logging.FileHandler('season_renamer.log', encoding='utf-8')
+fh = logging.FileHandler('logs.log', encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 ch = logging.StreamHandler()
@@ -30,8 +32,9 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.addHandler(fh)
 
-headers = {
-    'X-Emby-Token': API_KEY,
+def emby_headers(): 
+    return {
+    'X-Emby-Token': config['API_KEY'],
     'Content-Type': 'application/json',
 }
 
@@ -53,7 +56,7 @@ class JsonDataBase:
             with open(self.file_path, encoding=encoding) as f:
                 _json = json.load(f)
         except (FileNotFoundError, ValueError):
-            log.error(f'{self.file_name} not exist, return {self.db_type}')
+            # log.info(f'{self.file_name} not exist, return {self.db_type}')
             return dict(list=[], dict={})[self.db_type]
         else:
             return _json
@@ -118,18 +121,17 @@ def get_or_default(_dict, key, default=None):
 tmdb_db = TmdbDataBase('tmdb')
 
 
-def get_season_info_from_tmdb(tmdb_id, is_movie):
+def get_season_info_from_tmdb(tmdb_id, is_movie, serie_name):
     cache_key = ('mv' if is_movie else 'tv') + f'{tmdb_id}'
     cache_data = tmdb_db[cache_key]
     if cache_data:
         alt_names = cache_data['seasons']
         return alt_names, True
     url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?language=zh-CN&append_to_response=alternative_titles"
-    headers = {
+    response = session.get(url, headers= {
         "accept": "application/json",
-        "Authorization": f"Bearer {TMDB_KEY}"
-    }
-    response = session.get(url, headers=headers)
+        "Authorization": f"Bearer {config['TMDB_KEY']}"
+    })
     resp_json = response.json()
     if 'seasons' in resp_json:
         titles = resp_json["alternative_titles"]
@@ -149,10 +151,10 @@ def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
     global process_count
     # 获取剧集列表
     params = {'ParentId': parent_id}
-    response = session.get(f'{EMBY_SERVER}/emby/Items',
-                           headers=headers, params=params)
+    response = session.get(f"{config['EMBY_SERVER']}/emby/Items",
+                           headers=emby_headers(), params=params)
 
-    tmdb_seasons, is_cache = get_season_info_from_tmdb(tmdb_id, is_movie)
+    tmdb_seasons, is_cache = get_season_info_from_tmdb(tmdb_id, is_movie,series_name)
     from_cache = ' fromcache ' if is_cache else ''
     if not tmdb_seasons:
         log.error(f'   no season found in tmdb:{tmdb_id} {series_name}')
@@ -172,7 +174,7 @@ def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
         if tmdb_season:
             tmdb_season_name = tmdb_season['name']
             single_season_response = session.get(
-                f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{seaeson_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers, params=params)
+                f"{config['EMBY_SERVER']}/emby/Users/{config['USER_ID']}/Items/{seaeson_id}?Fields=ChannelMappingInfo&api_key={config['API_KEY']}", headers=emby_headers(), params=params)
             single_season = single_season_response.json()
             if 'Name' in single_season:
                 if season_name == tmdb_season_name:
@@ -187,10 +189,10 @@ def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
                     single_season['LockedFields'] = []
                 if 'Name' not in single_season['LockedFields']:
                     single_season['LockedFields'].append('Name')
-                if not DRY_RUN:
-                    update_url = f'{EMBY_SERVER}/emby/Items/{seaeson_id}?api_key={API_KEY}&reqformat=json'
+                if not config['DRY_RUN']:
+                    update_url = f"{config['EMBY_SERVER']}/emby/Items/{seaeson_id}?api_key={config['API_KEY']}&reqformat=json"
                     response = session.post(
-                        update_url, json=single_season, headers=headers)
+                        update_url, json=single_season, headers=emby_headers())
                     if response.status_code == 200 or response.status_code == 204:
                         process_count += 1
                         # log.info(f'      Successfully updated {series_name} {season_name} : {response.status_code} {response.content}')
@@ -203,7 +205,7 @@ def get_library_id(name):
     if not name:
         return
     res = session.get(
-        f'{EMBY_SERVER}/emby/Library/VirtualFolders', headers=headers)
+        f"{config['EMBY_SERVER']}/emby/Library/VirtualFolders", headers=emby_headers())
     lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
     if not lib_id:
         raise KeyError(f'library: {name} not exists, check it')
@@ -215,8 +217,8 @@ def get_lib_items(parent_id):
               #   'HasTmdbId': True,
               'fields': 'ProviderIds'
               }
-    response = session.get(f'{EMBY_SERVER}/emby/Items',
-                           headers=headers, params=params)
+    response = session.get(f"{config['EMBY_SERVER']}/emby/Items",
+                           headers=emby_headers(), params=params)
     items = response.json()['Items']
     items_folder = [item for item in items if item["Type"] == "Folder"]
     items = [item for item in items if item["Type"] != "Folder"]
@@ -225,9 +227,8 @@ def get_lib_items(parent_id):
 
     return items
 
-
-if __name__ == '__main__':
-    libs = LIB_NAME.split(',')
+def run_renamer():
+    libs = config['LIB_NAME'].split(',')
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
         series = get_lib_items(parent_id)
@@ -238,6 +239,8 @@ if __name__ == '__main__':
             serie_name = serie['Name']
             is_movie = serie['Type'] == 'Movie'
             tmdb_id = ''
+            if is_movie:
+                continue
             if 'ProviderIds' in serie and 'Tmdb' in serie['ProviderIds']:
                 tmdb_id = serie['ProviderIds']['Tmdb']
                 rename_seasons(serie_id, tmdb_id, serie_name, is_movie)
@@ -245,3 +248,8 @@ if __name__ == '__main__':
                 log.error(f'error:{serie_name} has no tmdb id, skip')
 
     log.info(f'**更新成功{process_count}条')
+
+
+
+if __name__ == '__main__':
+    run_renamer()

@@ -1,0 +1,32 @@
+version: "3.7"
+services:
+  flask_packager:
+    container_name: emby_scripts_3888
+    image: emby_scripts:0.0.1
+    network_mode: bridge
+    restart: always
+    ports:
+      - 3888:3888
+    environment:
+      - TZ=Asia/Shanghai
+      # EMBY地址
+      - EMBY_HOST= http://xxx:8092
+      # EMBY的API_KEY
+      - EMBY_API_KEY=
+      # EMBY的USERID
+      - EMBY_USER_ID=
+      # tmdb API 读访问令牌
+      - TMDB_KEY=
+      # 库名 多个时英文逗号分隔
+      - LIB_NAME=
+      # DRY_RUN = true时为预览, false实际运行
+      - DRY_RUN=true
+      # 运行间隔
+      - RUN_INTERVAL_HOURS=24
+      # web端口
+      - WEB_PORT=3888
+      # 是否启用各个模块
+      - ENABLE_ALTERNATIVE_RENAMER=true
+      - ENABLE_COUNTRY_SCAPTER=true
+      - ENABLE_GENRE_MAPPER=true
+      - ENABLE_SEASON_RENAMER=true
