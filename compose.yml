@@ -2,7 +2,7 @@ version: "3.7"
 services:
   flask_packager:
     container_name: emby_scripts_3888
-    image: emby_scripts:0.0.1
+    image: hush114514/emby_scripts
     network_mode: bridge
     restart: always
     ports:
