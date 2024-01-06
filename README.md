@@ -10,5 +10,5 @@
 
 
 ## 部署
-本地: pip install -r requirements.txt 后, 分别执行子目录下python文件
+本地: pip install -r requirements.txt 后, 分别执行子目录下python文件  
 Docker部署: 使用[Docker Compose](https://github.com/kuroyukihime0/emby-scripts/blob/master/compose.yml) 参考注释配置环境变量
