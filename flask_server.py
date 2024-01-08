@@ -154,7 +154,7 @@ if __name__ == "__main__":
         config['USER_ID'] = ENV_EMBY_USER_ID if ENV_EMBY_USER_ID else ''
         config['TMDB_KEY'] = ENV_TMDB_KEY if ENV_TMDB_KEY else ''
         config['LIB_NAME'] = ENV_LIB_NAME if ENV_LIB_NAME else ''
-        config['DRY_RUN'] = ENV_DRY_RUN if ENV_DRY_RUN else True
+        config['DRY_RUN'] = ENV_DRY_RUN
 
     thread = Thread(target=work_loop, kwargs={})
     thread.start()
