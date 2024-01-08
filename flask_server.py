@@ -18,10 +18,10 @@ from season_renamer import season_renamer
 
 ENV_RUN_INTERVAL_HOURS = int(os.environ['RUN_INTERVAL_HOURS'])
 ENV_PORT = os.environ["WEB_PORT"]
-ENV_ENABLE_ALTERNATIVE_RENAMER = (os.getenv('ENABLE_ALTERNATIVE_RENAMER') == 'True')
-ENV_ENABLE_COUNTRY_SCAPTER = (os.getenv('ENABLE_COUNTRY_SCAPTER') == 'True')
-ENV_ENABLE_GENRE_MAPPER = (os.getenv('ENABLE_GENRE_MAPPER') == 'True')
-ENV_ENABLE_SEASON_RENAMER = (os.getenv('ENABLE_SEASON_RENAMER') == 'True')
+ENV_ENABLE_ALTERNATIVE_RENAMER = (os.getenv('ENABLE_ALTERNATIVE_RENAMER') in['True','true'])
+ENV_ENABLE_COUNTRY_SCAPTER = (os.getenv('ENABLE_COUNTRY_SCAPTER') in['True','true'])
+ENV_ENABLE_GENRE_MAPPER = (os.getenv('ENABLE_GENRE_MAPPER') in['True','true'])
+ENV_ENABLE_SEASON_RENAMER = (os.getenv('ENABLE_SEASON_RENAMER') in['True','true'])
 
 
 ENV_EMBY_HOST = os.environ["EMBY_HOST"]
@@ -29,7 +29,7 @@ ENV_EMBY_API_KEY = os.environ["EMBY_API_KEY"]
 ENV_EMBY_USER_ID = os.environ["EMBY_USER_ID"]
 ENV_TMDB_KEY = os.environ["TMDB_KEY"]
 ENV_LIB_NAME = os.environ["LIB_NAME"]
-ENV_DRY_RUN = (os.getenv('DRY_RUN') == 'True')
+ENV_DRY_RUN = (os.getenv('DRY_RUN') in['True','true'])
 
 log = logging.getLogger('entrance')
 log.setLevel(logging.DEBUG)
