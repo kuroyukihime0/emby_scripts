@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file,render_template
+from flask import Flask, request, send_file, render_template
 import os
 import time
 import subprocess
@@ -29,7 +29,7 @@ ENV_EMBY_API_KEY = os.environ["EMBY_API_KEY"]
 ENV_EMBY_USER_ID = os.environ["EMBY_USER_ID"]
 ENV_TMDB_KEY = os.environ["TMDB_KEY"]
 ENV_LIB_NAME = os.environ["LIB_NAME"]
-ENV_DRY_RUN = os.environ["DRY_RUN"]
+ENV_DRY_RUN = (os.getenv('DRY_RUN', 'True') == 'True')
 
 log = logging.getLogger('entrance')
 log.setLevel(logging.DEBUG)
@@ -43,6 +43,7 @@ ch.setLevel(logging.DEBUG)
 ch.setFormatter(formatter)
 log.addHandler(ch)
 log.addHandler(fh)
+
 
 def get_or_default(value, default=None):
     return value if value else default
@@ -75,29 +76,32 @@ def tail(file_name, line_count=10, encoding='utf-8'):
     lines.reverse()
     return lines
 
+
 app = Flask(__name__)
 
 line_number = [0]
-@app.route('/get_log',methods=['GET','POST'])
+
+
+@app.route('/get_log', methods=['GET', 'POST'])
 def get_log():
-    log_data = tail('logs.log',100)
+    log_data = tail('logs.log', 100)
     print(log_data)
     if len(log_data) - line_number[0] > 0:
-        log_type = 2 
+        log_type = 2
         log_difference = len(log_data) - line_number[0]
         log_list = []
         for i in range(log_difference):
             log_i = log_data[-(i+1)]
-            log_list.insert(0,log_i) 
+            log_list.insert(0, log_i)
     else:
         log_type = 3
         log_list = ''
     _log = {
-        'log_type' : log_type,
-        'log_list' : log_list
+        'log_type': log_type,
+        'log_list': log_list
     }
-    line_number.pop() 
-    line_number.append(len(log_data)) 
+    line_number.pop()
+    line_number.append(len(log_data))
     return _log
 
 
@@ -106,7 +110,7 @@ def test():
     return {"message": "test"}
 
 
-@app.route('/',methods=['GET','POST'])
+@app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'GET':
         return render_template('index.html')
@@ -136,7 +140,8 @@ def work_loop():
 
 
 if __name__ == "__main__":
-    modules = [alternative_renamer,country_scraper,genre_mapper,season_renamer]
+    modules = [alternative_renamer, country_scraper,
+               genre_mapper, season_renamer]
 
     for module in modules:
         config = module.config
@@ -150,7 +155,7 @@ if __name__ == "__main__":
         config['TMDB_KEY'] = ENV_TMDB_KEY if ENV_TMDB_KEY else ''
         config['LIB_NAME'] = ENV_LIB_NAME if ENV_LIB_NAME else ''
         config['DRY_RUN'] = ENV_DRY_RUN if ENV_DRY_RUN else True
-        
+
     thread = Thread(target=work_loop, kwargs={})
     thread.start()
     app.run(host="0.0.0.0", port=ENV_PORT if ENV_PORT else 3888, debug=True)
