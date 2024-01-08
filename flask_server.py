@@ -29,7 +29,7 @@ ENV_EMBY_API_KEY = os.environ["EMBY_API_KEY"]
 ENV_EMBY_USER_ID = os.environ["EMBY_USER_ID"]
 ENV_TMDB_KEY = os.environ["TMDB_KEY"]
 ENV_LIB_NAME = os.environ["LIB_NAME"]
-ENV_DRY_RUN = (os.getenv('DRY_RUN', 'True') == 'True')
+ENV_DRY_RUN = (os.getenv('DRY_RUN') == 'True')
 
 log = logging.getLogger('entrance')
 log.setLevel(logging.DEBUG)
