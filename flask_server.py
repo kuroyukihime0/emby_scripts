@@ -18,10 +18,10 @@ from season_renamer import season_renamer
 
 ENV_RUN_INTERVAL_HOURS = int(os.environ['RUN_INTERVAL_HOURS'])
 ENV_PORT = os.environ["WEB_PORT"]
-ENV_ENABLE_ALTERNATIVE_RENAMER = os.environ["ENABLE_ALTERNATIVE_RENAMER"]
-ENV_ENABLE_COUNTRY_SCAPTER = os.environ["ENABLE_COUNTRY_SCAPTER"]
-ENV_ENABLE_GENRE_MAPPER = os.environ["ENABLE_GENRE_MAPPER"]
-ENV_ENABLE_SEASON_RENAMER = os.environ["ENABLE_SEASON_RENAMER"]
+ENV_ENABLE_ALTERNATIVE_RENAMER = (os.getenv('ENABLE_ALTERNATIVE_RENAMER') == 'True')
+ENV_ENABLE_COUNTRY_SCAPTER = (os.getenv('ENABLE_COUNTRY_SCAPTER') == 'True')
+ENV_ENABLE_GENRE_MAPPER = (os.getenv('ENABLE_GENRE_MAPPER') == 'True')
+ENV_ENABLE_SEASON_RENAMER = (os.getenv('ENABLE_SEASON_RENAMER') == 'True')
 
 
 ENV_EMBY_HOST = os.environ["EMBY_HOST"]
@@ -121,13 +121,25 @@ def index():
 def work():
     try:
         if ENV_ENABLE_ALTERNATIVE_RENAMER:
+            log.info('START ALTERNATIVE_RENAMER')
             alternative_renamer.run_renameer()
+        else:
+            log.info('SKIP ALTERNATIVE_RENAMER')
         if ENV_ENABLE_SEASON_RENAMER:
+            log.info('START SEASON_RENAMER')
             season_renamer.run_renamer()
+        else:
+            log.info('SKIP SEASON_RENAMER')
         if ENV_ENABLE_COUNTRY_SCAPTER:
+            log.info('START COUNTRY_SCAPTER')
             country_scraper.run_scraper()
+        else:
+            log.info('SKIP COUNTRY_SCAPTER')
         if ENV_ENABLE_GENRE_MAPPER:
+            log.info('START GENRE_MAPPER')
             genre_mapper.run_mapper()
+        else:
+            log.info('SKIP GENRE_MAPPER')
     except Exception as ex:
         log.error(str(ex))
 
