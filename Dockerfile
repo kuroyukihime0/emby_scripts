@@ -11,14 +11,11 @@ ENV TMDB_KEY =
 ENV LIB_NAME = 
 ENV DRY_RUN = true
 ENV RUN_INTERVAL_HOURS =  24
-ENV WEB_PORT = 3888
 
 ENV ENABLE_ALTERNATIVE_RENAMER = true
 ENV ENABLE_COUNTRY_SCAPTER = true
 ENV ENABLE_GENRE_MAPPER = true
 ENV ENABLE_SEASON_RENAMER = true
 
-EXPOSE 3888
-
 COPY . /app/
-CMD [ "python", "/app/flask_server.py" ]
+CMD [ "python", "/app/docker_entrance.py" ]

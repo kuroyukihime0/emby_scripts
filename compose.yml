@@ -1,12 +1,10 @@
 version: "3.7"
 services:
-  flask_packager:
+  emby_script:
     container_name: emby_scripts_3888
     image: hush114514/emby_scripts
     network_mode: bridge
     restart: always
-    ports:
-      - 3888:3888
     environment:
       - TZ=Asia/Shanghai
       # EMBY地址
@@ -23,8 +21,6 @@ services:
       - DRY_RUN=true
       # 运行间隔
       - RUN_INTERVAL_HOURS=24
-      # web端口
-      - WEB_PORT=3888
       # 是否启用各个模块
       - ENABLE_ALTERNATIVE_RENAMER=true
       - ENABLE_COUNTRY_SCAPTER=true
