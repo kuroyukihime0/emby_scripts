@@ -1,14 +1,6 @@
 import os
 import time
-import subprocess
-import random
-import string
-import platform
-import shutil
-import io
-from threading import Thread
-from hashlib import md5
-from werkzeug.utils import secure_filename
+
 import logging
 from alternative_renamer import alternative_renamer
 from country_scraper import country_scraper
