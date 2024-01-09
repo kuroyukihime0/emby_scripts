@@ -5,6 +5,11 @@ services:
     image: hush114514/emby_scripts
     network_mode: bridge
     restart: always
+    # OPTIONAL: 挂载tmdb缓存到容器外
+    # volumes:
+    #   - /your_localpath/tmdb_alt_name.json:/app/tmdb_alt_name.json
+    #   - /your_localpath/country.json:/app/country.json
+    #   - /your_localpath/tmdb.json:/app/tmdb.json
     environment:
       - TZ=Asia/Shanghai
       # EMBY地址
