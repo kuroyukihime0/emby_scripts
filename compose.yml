@@ -4,7 +4,6 @@ services:
     container_name: emby_scripts_3888
     image: hush114514/emby_scripts
     network_mode: bridge
-    restart: always
     # OPTIONAL: 挂载tmdb缓存到容器外
     # volumes:
     #   - /your_localpath/tmdb_alt_name.json:/app/tmdb_alt_name.json
