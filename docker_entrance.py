@@ -75,13 +75,14 @@ def work_loop():
 if __name__ == "__main__":
     modules = [alternative_renamer, country_scraper,
                genre_mapper, season_renamer]
-
+    assert ENV_EMBY_HOST
+    assert ENV_EMBY_API_KEY
+    assert ENV_EMBY_USER_ID
+    assert ENV_LIB_NAME
+    
     for module in modules:
         config = module.config
-        assert ENV_EMBY_HOST
-        assert ENV_EMBY_API_KEY
-        assert ENV_EMBY_USER_ID
-        assert ENV_LIB_NAME
+
         config['EMBY_SERVER'] = ENV_EMBY_HOST if ENV_EMBY_HOST else ''
         config['API_KEY'] = ENV_EMBY_API_KEY if ENV_EMBY_API_KEY else ''
         config['USER_ID'] = ENV_EMBY_USER_ID if ENV_EMBY_USER_ID else ''
@@ -89,5 +90,6 @@ if __name__ == "__main__":
         config['LIB_NAME'] = ENV_LIB_NAME if ENV_LIB_NAME else ''
         config['DRY_RUN'] = ENV_DRY_RUN
         config['ADD_HANT_TITLE'] = ENV_ADD_HANT_TITLE
+        config['IS_DOCKER'] = True
 
     work_loop()

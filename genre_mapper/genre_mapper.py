@@ -1,5 +1,6 @@
 import requests
 import json
+import logging
 
 config = {
     # 设置 Emby 服务器地址
@@ -35,6 +36,19 @@ session = requests.session()
 
 process_count = 0
 
+log = logging.getLogger('season_renamer')
+log.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+fh = logging.FileHandler('logs.log', encoding='utf-8')
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(formatter)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+log.addHandler(ch)
+log.addHandler(fh)
+
 
 def remove_genre_for_episodes(parent_id):
     global process_count
@@ -54,12 +68,12 @@ def remove_genre_for_episodes(parent_id):
             need_replace = True
 
     if need_replace:
-        print(f'{series["Name"]}:')
+        log.info(f'{series["Name"]}:')
         genres_new = [genre_mapping[genre]['Name']
                       if genre in genre_mapping else genre for genre in genres]
         genres_new = list(
             filter(lambda genre: genre not in genre_remove, genres_new))
-        print('   '+str(series['Genres'])+"-->"+str(genres_new))
+        log.info('   '+str(series['Genres'])+"-->"+str(genres_new))
         series['Genres'] = genres_new
 
         series['GenreItems'] = [genre_mapping[genre_item['Name']] if genre_item['Name']
@@ -72,11 +86,8 @@ def remove_genre_for_episodes(parent_id):
                 update_url, json=series, headers=emby_headers())
             if response.status_code == 200 or response.status_code == 204:
                 process_count += 1
-                print(
-                    f'      Successfully updated series {parent_id} : {response.status_code} {response.content}')
             else:
-                print(
-                    f'      Failed to update series {parent_id}: {response.status_code} {response.content}')
+                log.error(f'      Failed to update series {parent_id}: {response.status_code} {response.content}')
 
 
 def get_library_id(name):
@@ -110,12 +121,12 @@ def run_mapper():
     for lib_name in libs:
         parent_id = get_library_id(lib_name.strip())
         series = get_lib_items(parent_id)
-        print(f'**库 {lib_name} 中共有{len(series)} 个剧集，开始处理')
+        log.info(f'**库 {lib_name} 中共有{len(series)} 个剧集，开始处理')
         for serie in series:
             serie_id = serie['Id']
             remove_genre_for_episodes(serie_id)
 
-    print(f'**更新成功{process_count}条')
+    log.info(f'**更新成功{process_count}条')
 
 if __name__ == '__main__':
     run_mapper()

@@ -178,8 +178,9 @@ def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
             single_season = single_season_response.json()
             if 'Name' in single_season:
                 if season_name == tmdb_season_name:
-                    log.info(
-                        f'   {series_name} 第{season_index}季 {from_cache} [{season_name}] 季名一致 跳过更新')
+                    if get_or_default(config,'IS_DOCKER') != True:
+                        log.info(
+                            f'   {series_name} 第{season_index}季 {from_cache} [{season_name}] 季名一致 跳过更新')
                     continue
                 else:
                     log.info(

@@ -186,7 +186,8 @@ def add_country(parent_id, tmdb_id, serie_name, is_movie):
         tmdb_id, serie_name, is_movie=is_movie)
     from_cache = ' fromcache ' if is_cache else ''
     if not production_countries and not spoken_languages:
-        log.info(f'   {serie_name} {from_cache} 没有设置国家 跳过')
+        if get_or_default(config,'IS_DOCKER') != True:
+            log.info(f'   {serie_name} {from_cache} 没有设置国家 跳过')
         return
 
     item_response = session.get(
@@ -224,7 +225,8 @@ def add_country(parent_id, tmdb_id, serie_name, is_movie):
                 new_tags.append(language)
 
     if new_tags == old_tags:
-        log.info(f'   {serie_name} {from_cache} 标签没有变化 跳过')
+        if get_or_default(config,'IS_DOCKER') != True:
+            log.info(f'   {serie_name} {from_cache} 标签没有变化 跳过')
         return
     else:
         log.info(f'   {serie_name} {from_cache} 设置标签为 {new_tags}')

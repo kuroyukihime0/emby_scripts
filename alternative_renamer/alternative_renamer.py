@@ -199,7 +199,8 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
         tmdb_alt_name = tmdb_alt_name + hant_trans
 
     if len(tmdb_alt_name) == 0:
-        log.info(f'   {serie_name} {from_cache} 没有别名 跳过')
+        if get_or_default(config,'IS_DOCKER') != True:
+            log.info(f'   {serie_name} {from_cache} 没有别名 跳过')
         return
 
     name_spliter = ' / '
@@ -222,7 +223,8 @@ def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
 
         sort_name_all = name_spliter.join(res)
         if old_names == res:
-            log.info(f'   {series_name} {from_cache} 别名没有增删 跳过')
+            if get_or_default(config,'IS_DOCKER') != True:
+                log.info(f'   {series_name} {from_cache} 别名没有增删 跳过')
             return
         else:
             log.info(f'   {series_name} {from_cache} 增加别名 [{sort_name_all}]')
