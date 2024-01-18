@@ -151,8 +151,8 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
             titles, "titles" if is_movie else "results", None)
         translations = get_or_default(resp_json,"translations")
         translations = get_or_default(translations,"translations")
-        hant_trans = [cc.convert(tran['data']['title'])
-                     for tran in translations if (tran["iso_3166_1"] == "HK" or tran["iso_3166_1"] == "TW") and len(tran['data']['title'].strip())!=0 ]
+        hant_trans = [cc.convert(tran['data']['title' if is_movie else 'name'])
+                     for tran in translations if (tran["iso_3166_1"] == "HK" or tran["iso_3166_1"] == "TW") and len(tran['data']['title' if is_movie else 'name'].strip())!=0 ]
         # if not alt_names:
         #     log.error(f'   alt names missing in tmdb:{serie_name} {resp_json}')
         tmdb_db.save_alt_name(
