@@ -20,6 +20,7 @@ ENV_EMBY_USER_ID = os.environ["EMBY_USER_ID"]
 ENV_TMDB_KEY = os.environ["TMDB_KEY"]
 ENV_LIB_NAME = os.environ["LIB_NAME"]
 ENV_DRY_RUN = (os.getenv('DRY_RUN') in['True','true'])
+ENV_ADD_HANT_TITLE = (os.getenv('ADD_HANT_TITLE') in['True','true'])
 
 log = logging.getLogger('entrance')
 log.setLevel(logging.DEBUG)
@@ -87,5 +88,6 @@ if __name__ == "__main__":
         config['TMDB_KEY'] = ENV_TMDB_KEY if ENV_TMDB_KEY else ''
         config['LIB_NAME'] = ENV_LIB_NAME if ENV_LIB_NAME else ''
         config['DRY_RUN'] = ENV_DRY_RUN
+        config['ADD_HANT_TITLE'] = ENV_ADD_HANT_TITLE
 
     work_loop()

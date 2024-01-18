@@ -4,6 +4,9 @@ import os
 import logging
 from dateutil import parser
 import datetime
+from opencc import OpenCC
+
+cc = OpenCC('t2s')
 
 config = {
     # 设置 Emby 服务器地址
@@ -17,6 +20,7 @@ config = {
     'LIB_NAME' : '',
     # True 时为预览效果, False 实际写入
     'DRY_RUN' : True,
+    'ADD_HANT_TITLE' : True,
 }
 
 if not os.path.exists('logs'):
@@ -106,12 +110,13 @@ class TmdbDataBase(JsonDataBase):
                      datetime.date.fromisoformat(info['update_date']) + expire_days > today}
         self.save()
 
-    def save_alt_name(self, tmdb_id, premiere_date, name, alt_names, seasons=None):
+    def save_alt_name(self, tmdb_id, premiere_date, name, alt_names, seasons=None,hant_trans = None):
         self.data[tmdb_id] = {
             'premiere_date': premiere_date,
             'name': name,
             'alt_names': alt_names,
             'seasons': seasons,
+            'hant_trans': hant_trans,
             'update_date': str(datetime.date.today()),
         }
         self.save()
@@ -129,9 +134,10 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
     cache_data = tmdb_db[cache_key]
     if cache_data and 'alt_names' in cache_data:
         alt_names = cache_data['alt_names']
-        return alt_names, True
+        hant_trans = cache_data['hant_trans']
+        return alt_names,hant_trans, True
 
-    url = f"https://api.themoviedb.org/3/{'movie' if is_movie else 'tv'}/{tmdb_id}?append_to_response=alternative_titles&language=zh-CN"
+    url = f"https://api.themoviedb.org/3/{'movie' if is_movie else 'tv'}/{tmdb_id}?append_to_response=alternative_titles,translations&language=zh-CN"
     response = session.get(url, headers={
         "accept": "application/json",
         "Authorization": f"Bearer {config['TMDB_KEY']}"
@@ -143,14 +149,18 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
             resp_json, 'last_air_date', default=get_or_default(resp_json, 'first_air_date'))
         alt_names = get_or_default(
             titles, "titles" if is_movie else "results", None)
+        translations = get_or_default(resp_json,"translations")
+        translations = get_or_default(translations,"translations")
+        hant_trans = [cc.convert(tran['data']['title'])
+                     for tran in translations if (tran["iso_3166_1"] == "HK" or tran["iso_3166_1"] == "TW") and len(tran['data']['title'].strip())!=0 ]
         # if not alt_names:
         #     log.error(f'   alt names missing in tmdb:{serie_name} {resp_json}')
         tmdb_db.save_alt_name(
-            cache_key, premiere_date=release_date, name=serie_name, alt_names=alt_names, seasons=get_or_default(resp_json, 'seasons'))
-        return alt_names, False
+            cache_key, premiere_date=release_date, name=serie_name, alt_names=alt_names, seasons=get_or_default(resp_json, 'seasons'),hant_trans=hant_trans)
+        return alt_names,hant_trans, False
     else:
         log.error(f'   no result found in tmdb:{serie_name} {resp_json}')
-        return None, None
+        return None,None, None
 
 
 arr_invalid_char = ['ā', 'á',  'ǎ', 'à',
@@ -173,14 +183,20 @@ def invalid_char_in_str(name):
 
 def add_alt_names(parent_id, tmdb_id, serie_name, is_movie):
     global process_count
-    tmdb_alt_name, is_cache = get_alt_name_info_from_tmdb(
+    tmdb_alt_name, hant_trans, is_cache = get_alt_name_info_from_tmdb(
         tmdb_id, serie_name, is_movie=is_movie)
     from_cache = ' fromcache ' if is_cache else ''
-    if not tmdb_alt_name:
+    if not tmdb_alt_name and not hant_trans == 0:
         return
-
-    tmdb_alt_name = [x['title']
-                     for x in tmdb_alt_name if x["iso_3166_1"] == "CN"]
+    
+    if not tmdb_alt_name:
+        tmdb_alt_name = []
+    else:
+        tmdb_alt_name = [x['title']
+                        for x in tmdb_alt_name if x["iso_3166_1"] == "CN"]
+        
+    if get_or_default(config,'ADD_HANT_TITLE') == True and hant_trans:
+        tmdb_alt_name = tmdb_alt_name + hant_trans
 
     if len(tmdb_alt_name) == 0:
         log.info(f'   {serie_name} {from_cache} 没有别名 跳过')

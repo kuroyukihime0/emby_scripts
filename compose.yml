@@ -26,6 +26,8 @@ services:
       - DRY_RUN=true
       # 运行间隔
       - RUN_INTERVAL_HOURS=24
+      # 是否增加港台标题
+      - ADD_HANT_TITLE=true
       # 是否启用各个模块
       - ENABLE_ALTERNATIVE_RENAMER=true
       - ENABLE_COUNTRY_SCAPTER=true
