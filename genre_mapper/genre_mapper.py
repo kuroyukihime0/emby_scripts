@@ -36,7 +36,7 @@ session = requests.session()
 
 process_count = 0
 
-log = logging.getLogger('season_renamer')
+log = logging.getLogger('genre_mapper')
 log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     '%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
