@@ -7,6 +7,8 @@
 [country_scraper](https://github.com/kuroyukihime0/emby-scripts/tree/master/country_scraper) -> 刮削电影/剧集的国家/语言作为标签(tag)  
 [theme_song_scraper](https://github.com/kuroyukihime0/emby_scripts/tree/master/theme_song_scraper) -> 刮削剧集主题曲 
 
+[strm_mediainfo](https://github.com/kuroyukihime0/emby_scripts/tree/master/strm_mediainfo) -> 强制生成strm文件的mediainfo
+
 具体以脚本readme为准  
 
 ## Coming
