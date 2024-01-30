@@ -160,12 +160,16 @@ def get_country_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
         spoken_languages = cache_data["spoken_languages"]
         return production_countries, spoken_languages, True
 
-    url = f"https://api.themoviedb.org/3/{'movie' if is_movie else 'tv'}/{tmdb_id}?language=zh-CN"
-    response = session.get(url, headers={
-        "accept": "application/json",
-        "Authorization": f"Bearer {config['TMDB_KEY']}"
-    })
-    resp_json = response.json()
+    try:
+        url = f"https://api.themoviedb.org/3/{'movie' if is_movie else 'tv'}/{tmdb_id}?language=zh-CN"
+        response = session.get(url, headers={
+            "accept": "application/json",
+            "Authorization": f"Bearer {config['TMDB_KEY']}"
+        })
+        resp_json = response.json()
+    except Exception as ex:
+        log.exception(ex)
+        return None,None, None
     # print(resp_json)
     if "production_countries" in resp_json or "spoken_languages" in resp_json:
         production_countries = resp_json["production_countries"]

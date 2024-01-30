@@ -128,11 +128,15 @@ def get_season_info_from_tmdb(tmdb_id, is_movie, serie_name):
         alt_names = cache_data['seasons']
         return alt_names, True
     url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?language=zh-CN&append_to_response=alternative_titles"
-    response = session.get(url, headers= {
-        "accept": "application/json",
-        "Authorization": f"Bearer {config['TMDB_KEY']}"
-    })
-    resp_json = response.json()
+    try:
+        response = session.get(url, headers= {
+            "accept": "application/json",
+            "Authorization": f"Bearer {config['TMDB_KEY']}"
+        })
+        resp_json = response.json()
+    except Exception as ex:
+        log.exception(ex)
+        return None, None
     if 'seasons' in resp_json:
         titles = resp_json["alternative_titles"]
         release_date = get_or_default(

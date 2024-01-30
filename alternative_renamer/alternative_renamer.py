@@ -138,11 +138,15 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
         return alt_names,hant_trans, True
 
     url = f"https://api.themoviedb.org/3/{'movie' if is_movie else 'tv'}/{tmdb_id}?append_to_response=alternative_titles,translations&language=zh-CN"
-    response = session.get(url, headers={
-        "accept": "application/json",
-        "Authorization": f"Bearer {config['TMDB_KEY']}"
-    })
-    resp_json = response.json()
+    try:
+        response = session.get(url, headers={
+            "accept": "application/json",
+            "Authorization": f"Bearer {config['TMDB_KEY']}"
+        })
+        resp_json = response.json()
+    except Exception as ex:
+        log.exception(ex)
+        return None,None,None
     if "alternative_titles" in resp_json:
         titles = resp_json["alternative_titles"]
         release_date = get_or_default(resp_json, 'release_date') if is_movie else get_or_default(
@@ -160,7 +164,7 @@ def get_alt_name_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
         return alt_names,hant_trans, False
     else:
         log.error(f'   no result found in tmdb:{serie_name} {resp_json}')
-        return None,None, None
+        return None,None,None
 
 
 arr_invalid_char = ['ā', 'á',  'ǎ', 'à',
