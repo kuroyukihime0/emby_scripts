@@ -111,7 +111,9 @@ class TmdbDataBase(JsonDataBase):
         except Exception as ex:
             pass
         today = datetime.date.today()
-        if air_date + datetime.timedelta(days=90) > today:
+        if air_date + datetime.timedelta(days=30) > today:
+            expire_day = 3
+        elif air_date + datetime.timedelta(days=90) > today:
             expire_day = 15
         elif air_date + datetime.timedelta(days=365) > today:
             expire_day = 30
