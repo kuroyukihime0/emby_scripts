@@ -12,7 +12,8 @@ SERIES_DIR = [
 MOVIE_DIR = [
     r"W:\Movie",
 ]
-DOWNLOAD_MOVIE_BACKDROPS = False
+# 是否下载电影的视频
+DOWNLOAD_MOVIE_BACKDROPS = True
 
 count = 0
 session = requests.Session()
