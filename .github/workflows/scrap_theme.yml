@@ -20,3 +20,14 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Doing fetch
       run: python theme_song_scraper/spider/lizardbyte_spider.py
+    - name: Commit files
+      run: |
+        git config --local user.email "a@b.c"
+        git config --local user.name "Joker"
+        git add .
+        git commit -m "update theme song database"
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: master
