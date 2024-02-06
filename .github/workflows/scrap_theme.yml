@@ -1,0 +1,22 @@
+name: Scrape Movie Theme
+on:
+  workflow_dispatch:
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout from repo
+      uses: actions/checkout@main
+      with:
+        ref: master
+    - name: Install Python latest
+      uses: actions/setup-python@main
+      with:
+        python-version: '3.x'
+        architecture: 'x64'
+    - name: Install dependencies
+      run: |
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Doing fetch
+      run: python theme_song_scraper/spider/lizardbyte_spider.py
