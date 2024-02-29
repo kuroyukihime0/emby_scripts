@@ -87,7 +87,7 @@ class TmdbDataBase(JsonDataBase):
         elif air_date + datetime.timedelta(days=365) > today:
             expire_day = 30
         else:
-            expire_day = 365
+            expire_day = 30
         update_date = datetime.date.fromisoformat(data['update_date'])
         if update_date + datetime.timedelta(days=expire_day) < today:
             return
