@@ -7,7 +7,7 @@
 [country_scraper](https://github.com/kuroyukihime0/emby-scripts/tree/master/country_scraper) -> 刮削电影/剧集的国家/语言作为标签(tag)  
 [theme_song_scraper](https://github.com/kuroyukihime0/emby_scripts/tree/master/theme_song_scraper) -> 刮削剧集/电影主题曲 
 
-[strm_mediainfo](https://github.com/kuroyukihime0/emby_scripts/tree/master/strm_mediainfo) -> 强制生成strm文件的mediainfo
+[strm_mediainfo](https://github.com/kuroyukihime0/emby_scripts/tree/master/strm_mediainfo) -> 强制生成strm文件的mediainfo 
 
 具体以脚本readme为准  
 
@@ -15,4 +15,9 @@
 
 ## 部署
 本地: pip install -r requirements.txt 后, 分别执行子目录下python文件  
-Docker部署: 使用[Docker Compose](https://github.com/kuroyukihime0/emby-scripts/blob/master/compose.yml) 参考注释配置环境变量
+Docker部署: 使用[Docker Compose](https://github.com/kuroyukihime0/emby-scripts/blob/master/compose.yml) 参考注释配置环境变量 
+
+## 其他
+[修改版TMDB插件](https://github.com/kuroyukihime0/emby_scripts/blob/master/bin/MovieDb.dll)  
+[修改版TVDB插件](https://github.com/kuroyukihime0/emby_scripts/blob/master/bin/Tvdb.dll)  
+版本号为10.X, 移除无默认语言时刮削其他语言, TMDB插件支持zh-sg作为标题备选语言(简中标题被锁时可以刮到zh-sg)
