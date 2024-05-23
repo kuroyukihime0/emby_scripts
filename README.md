@@ -23,4 +23,5 @@ Docker部署: 使用[Docker Compose](https://github.com/kuroyukihime0/emby-scrip
 版本号为10.X, 移除无默认语言时刮削其他语言, TMDB插件支持zh-sg作为标题备选语言(简中标题被锁时可以刮到zh-sg)  
 
 ChangeLog:  
+2024.05.23: Tmdb插件支持修复无法刮到中文集截图  
 2024.05.11: Tmdb插件支持刮削季名  
