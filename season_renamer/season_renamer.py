@@ -7,16 +7,16 @@ import datetime
 
 config = {
     # 设置 Emby 服务器地址
-    'EMBY_SERVER' :'http://xxx:8096',
+    'EMBY_SERVER': 'http://xxx:8096',
     # 设置 Emby 服务器APIKEY和userid
-    'API_KEY' : '',
-    'USER_ID' : '',
+    'API_KEY': '',
+    'USER_ID': '',
     # 设置 TMDB_KEY
-    'TMDB_KEY' : '',
+    'TMDB_KEY': '',
     # 库名, 多个时英文逗号分隔, 只支持剧集/电影库
-    'LIB_NAME' : '',
+    'LIB_NAME': '',
     # True 时为预览效果, False 实际写入
-    'DRY_RUN' : True,
+    'DRY_RUN': True,
 }
 
 log = logging.getLogger('season_renamer')
@@ -32,11 +32,13 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.addHandler(fh)
 
-def emby_headers(): 
+
+def emby_headers():
     return {
-    'X-Emby-Token': config['API_KEY'],
-    'Content-Type': 'application/json',
-}
+        'X-Emby-Token': config['API_KEY'],
+        'Content-Type': 'application/json',
+    }
+
 
 session = requests.session()
 
@@ -113,7 +115,8 @@ class TmdbDataBase(JsonDataBase):
             'seasons': seasons,
             'update_date': str(datetime.date.today()),
         }
-        self.save()
+        if process_count % 20 == 0:
+            self.save()
 
 
 def get_or_default(_dict, key, default=None):
@@ -131,7 +134,7 @@ def get_season_info_from_tmdb(tmdb_id, is_movie, serie_name):
         return alt_names, True
     url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?language=zh-CN&append_to_response=alternative_titles"
     try:
-        response = session.get(url, headers= {
+        response = session.get(url, headers={
             "accept": "application/json",
             "Authorization": f"Bearer {config['TMDB_KEY']}"
         })
@@ -160,7 +163,8 @@ def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
     response = session.get(f"{config['EMBY_SERVER']}/emby/Items",
                            headers=emby_headers(), params=params)
 
-    tmdb_seasons, is_cache = get_season_info_from_tmdb(tmdb_id, is_movie,series_name)
+    tmdb_seasons, is_cache = get_season_info_from_tmdb(
+        tmdb_id, is_movie, series_name)
     from_cache = ' fromcache ' if is_cache else ''
     if not tmdb_seasons:
         log.error(f'   no season found in tmdb:{tmdb_id} {series_name}')
@@ -184,7 +188,7 @@ def rename_seasons(parent_id, tmdb_id, series_name, is_movie):
             single_season = single_season_response.json()
             if 'Name' in single_season:
                 if season_name == tmdb_season_name:
-                    if get_or_default(config,'IS_DOCKER') != True:
+                    if get_or_default(config, 'IS_DOCKER') != True:
                         log.info(
                             f'   {series_name} 第{season_index}季 {from_cache} [{season_name}] 季名一致 跳过更新')
                     continue
@@ -234,6 +238,7 @@ def get_lib_items(parent_id):
 
     return items
 
+
 def run_renamer():
     libs = config['LIB_NAME'].split(',')
     for lib_name in libs:
@@ -254,8 +259,8 @@ def run_renamer():
             else:
                 log.error(f'error:{serie_name} has no tmdb id, skip')
 
+    tmdb_db.save()
     log.info(f'**更新成功{process_count}条')
-
 
 
 if __name__ == '__main__':

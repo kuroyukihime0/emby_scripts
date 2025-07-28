@@ -7,16 +7,16 @@ import datetime
 
 config = {
     # 设置 Emby 服务器地址
-    'EMBY_SERVER' :'http://xxx:8096',
+    'EMBY_SERVER': 'http://xxx:8096',
     # 设置 Emby 服务器APIKEY和userid
-    'API_KEY' : '',
-    'USER_ID' : '',
+    'API_KEY': '',
+    'USER_ID': '',
     # 设置 TMDB_KEY（API 读访问令牌）
-    'TMDB_KEY' : '',
+    'TMDB_KEY': '',
     # 库名, 多个时英文逗号分隔, 只支持剧集/电影库
-    'LIB_NAME' : '',
+    'LIB_NAME': '',
     # True 时为预览效果, False 实际写入
-    'DRY_RUN' : True,
+    'DRY_RUN': True,
 }
 
 country_dict = {
@@ -63,11 +63,12 @@ log.addHandler(ch)
 log.addHandler(fh)
 
 
-def emby_headers(): 
+def emby_headers():
     return {
-    'X-Emby-Token': config['API_KEY'],
-    'Content-Type': 'application/json',
-}
+        'X-Emby-Token': config['API_KEY'],
+        'Content-Type': 'application/json',
+    }
+
 
 session = requests.session()
 
@@ -144,7 +145,8 @@ class TmdbDataBase(JsonDataBase):
             'spoken_languages': spoken_languages,
             'update_date': str(datetime.date.today()),
         }
-        self.save()
+        if process_count % 20 == 0:
+            self.save()
 
 
 def get_or_default(_dict, key, default=None):
@@ -171,7 +173,7 @@ def get_country_info_from_tmdb(tmdb_id, serie_name, is_movie=False):
         resp_json = response.json()
     except Exception as ex:
         log.exception(ex)
-        return None,None, None
+        return None, None, None
     # print(resp_json)
     if "production_countries" in resp_json or "spoken_languages" in resp_json:
         production_countries = resp_json["production_countries"]
@@ -192,7 +194,7 @@ def add_country(parent_id, tmdb_id, serie_name, is_movie):
         tmdb_id, serie_name, is_movie=is_movie)
     from_cache = ' fromcache ' if is_cache else ''
     if not production_countries and not spoken_languages:
-        if get_or_default(config,'IS_DOCKER') != True:
+        if get_or_default(config, 'IS_DOCKER') != True:
             log.info(f'   {serie_name} {from_cache} 没有设置国家 跳过')
         return
 
@@ -231,7 +233,7 @@ def add_country(parent_id, tmdb_id, serie_name, is_movie):
                 new_tags.append(language)
 
     if new_tags == old_tags:
-        if get_or_default(config,'IS_DOCKER') != True:
+        if get_or_default(config, 'IS_DOCKER') != True:
             log.info(f'   {serie_name} {from_cache} 标签没有变化 跳过')
         return
     else:
@@ -306,8 +308,9 @@ def run_scraper():
             else:
                 log.info(f'error:{item_name} has no tmdb id, skip')
 
+    tmdb_db.save()
     log.info(f'**更新成功{process_count}条')
+
 
 if __name__ == '__main__':
     run_scraper()
-    
