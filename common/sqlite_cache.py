@@ -170,12 +170,21 @@ class SQLiteTMDBCache:
 
                     conn.commit()
 
-                # 迁移合并成功，彻底删除原 JSON 文件
-                os.remove(json_file)
-                logger.info(f"成功迁移并合并旧缓存 [{json_file}]（包含 {migrated_keys} 项数据），原 JSON 文件已删除。")
+                # 迁移合并成功，尝试彻底删除原 JSON 文件
+                try:
+                    os.remove(json_file)
+                    logger.info(f"✅ 成功迁移并合并旧缓存 [{json_file}]（包含 {migrated_keys} 项数据），原 JSON 文件已删除。")
+                except OSError as err:
+                    # 若文件被 Docker 单文件挂载 (Bind Mount) 导致 Resource busy 无法删除，清空其内容
+                    try:
+                        with open(json_file, 'w', encoding='utf-8') as f:
+                            f.write("{}")
+                        logger.info(f"✅ 成功迁移并合并旧缓存 [{json_file}]（包含 {migrated_keys} 项数据）。因该文件被 Docker 挂载，已清空其内容。")
+                    except Exception as clean_err:
+                        logger.warning(f"⚠️ 无法清空被挂载的 JSON 文件 [{json_file}]: {clean_err}")
 
             except Exception as e:
-                logger.error(f"迁移合并旧 JSON 缓存 [{json_file}] 失败: {e}", exc_info=True)
+                logger.error(f"❌ 迁移合并旧 JSON 缓存 [{json_file}] 失败: {e}", exc_info=True)
 
 
 class LazyTMDBCacheProxy:
