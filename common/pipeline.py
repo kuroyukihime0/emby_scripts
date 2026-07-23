@@ -50,14 +50,12 @@ def run_pipeline(cfg: Config):
 
             for item in items:
                 item_id = item['Id']
-                item_name = item['Name']
+                item_name = item.get('Name', '')
                 is_movie = item.get('Type') == 'Movie'
                 is_series = item.get('Type') == 'Series'
 
-                # 1. 集中 GET 一次 Emby Item 详情
-                emby_item = client.get_item(item_id)
-                if not emby_item:
-                    continue
+                # 直接复用一次性拉取出的全量 item 对象（消除单 Item 的额外 GET 请求）
+                emby_item = item
 
                 item_modified = False
                 tmdb_data = None

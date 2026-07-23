@@ -22,7 +22,10 @@ config = {
 def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name: str, is_movie: bool):
     process_count = 0
     url = f"{client.config.EMBY_SERVER.rstrip('/')}/emby/Items"
-    params = {'ParentId': parent_id}
+    params = {
+        'ParentId': parent_id,
+        'fields': 'Name,IndexNumber,LockedFields'
+    }
 
     try:
         response = client.session.get(url, headers=client.headers, params=params)
@@ -42,7 +45,7 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
 
     for season in seasons:
         season_id = season['Id']
-        season_name = season['Name']
+        season_name = season.get('Name', '')
         if 'IndexNumber' not in season:
             log.info(f'⏭️  [季名跳过] 《{series_name}》 {season_name} 无 IndexNumber 编号')
             continue
@@ -51,27 +54,24 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
         tmdb_season = next((s for s in tmdb_seasons if s.get('season_number') == season_index), None)
         if tmdb_season:
             tmdb_season_name = tmdb_season.get('name', '').strip()
-            single_season = client.get_item(season_id)
-            if not single_season:
+            single_season = season
+            current_name = single_season.get('Name', '').strip()
+
+            if current_name == tmdb_season_name:
+                if not client.config.IS_DOCKER:
+                    log.info(f'⏭️  [季名跳过] 《{series_name}》 第{season_index}季{from_cache} - 季名一致 [{season_name}]')
                 continue
+            else:
+                log.info(f'📺 [季名更新] 《{series_name}》 第{season_index}季{from_cache} ➔ [{current_name}] 更名为 [{tmdb_season_name}]')
 
-            if 'Name' in single_season:
-                current_name = single_season['Name'].strip()
-                if current_name == tmdb_season_name:
-                    if not client.config.IS_DOCKER:
-                        log.info(f'⏭️  [季名跳过] 《{series_name}》 第{season_index}季{from_cache} - 季名一致 [{season_name}]')
-                    continue
-                else:
-                    log.info(f'📺 [季名更新] 《{series_name}》 第{season_index}季{from_cache} ➔ [{current_name}] 更名为 [{tmdb_season_name}]')
+            single_season['Name'] = tmdb_season_name
+            if 'LockedFields' not in single_season:
+                single_season['LockedFields'] = []
+            if 'Name' not in single_season['LockedFields']:
+                single_season['LockedFields'].append('Name')
 
-                single_season['Name'] = tmdb_season_name
-                if 'LockedFields' not in single_season:
-                    single_season['LockedFields'] = []
-                if 'Name' not in single_season['LockedFields']:
-                    single_season['LockedFields'].append('Name')
-
-                if client.update_item(season_id, single_season):
-                    process_count += 1
+            if client.update_item(season_id, single_season):
+                process_count += 1
 
     return process_count
 

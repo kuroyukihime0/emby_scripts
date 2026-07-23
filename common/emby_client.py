@@ -37,14 +37,14 @@ class EmbyClient:
             logger.error(f"Failed to fetch library ID for '{lib_name}': {e}")
             return None
 
-    def get_lib_items(self, parent_id: str) -> list:
+    def get_lib_items(self, parent_id: str, fields: str = "ProviderIds,SortName,Tags,TagItems,Genres,GenreItems,LockedFields") -> list:
         """
-        递归获取 parent_id 目录下的所有非文件夹子项
+        递归获取 parent_id 目录下的所有非文件夹子项，并一次性拉取全量属性字段（零重复 GET 请求）
         """
         url = f"{self.config.EMBY_SERVER.rstrip('/')}/emby/Items"
         params = {
             'ParentId': parent_id,
-            'fields': 'ProviderIds'
+            'fields': fields
         }
         try:
             res = self.session.get(url, headers=self.headers, params=params)
@@ -55,7 +55,7 @@ class EmbyClient:
             result_items = [item for item in items if item.get("Type") != "Folder"]
 
             for folder in items_folder:
-                result_items.extend(self.get_lib_items(folder['Id']))
+                result_items.extend(self.get_lib_items(folder['Id'], fields=fields))
 
             return result_items
         except Exception as e:
