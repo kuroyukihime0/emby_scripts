@@ -80,8 +80,16 @@ def run_scraper(sys_config: Config = None):
                     continue
 
                 series_name = emby_item.get('Name', item_name)
-                old_tags = [tag['Name'] for tag in emby_item.get('TagItems', [])]
-                new_tags = old_tags[:]
+
+                # 去空格规范化
+                raw_tag_items = emby_item.get('TagItems', [])
+                old_tags = [t['Name'].strip() for t in raw_tag_items if isinstance(t, dict) and 'Name' in t and t['Name'].strip()]
+                if not old_tags and emby_item.get('Tags'):
+                    old_tags = [t.strip() for t in emby_item['Tags'] if isinstance(t, str) and t.strip()]
+
+                existing_tag_set = {t.lower() for t in old_tags}
+                new_tags = list(old_tags)
+                tag_added = False
 
                 tmdb_countries = []
                 for country in prod_countries:
@@ -90,8 +98,11 @@ def run_scraper(sys_config: Config = None):
                         tmdb_countries.append(tag)
 
                 for country in tmdb_countries:
-                    if country not in new_tags and (country != DEFAULT_COUNTRY or len(tmdb_countries) <= 2):
-                        new_tags.append(country)
+                    clean_c = country.strip()
+                    if clean_c.lower() not in existing_tag_set and (clean_c != DEFAULT_COUNTRY or len(tmdb_countries) <= 2):
+                        new_tags.append(clean_c)
+                        existing_tag_set.add(clean_c.lower())
+                        tag_added = True
 
                 tmdb_languages = []
                 for language in spoken_langs:
@@ -100,10 +111,13 @@ def run_scraper(sys_config: Config = None):
                         tmdb_languages.append(tag)
 
                 for language in tmdb_languages:
-                    if language not in new_tags and (language != DEFAULT_LANGUAGE or len(tmdb_languages) <= 2):
-                        new_tags.append(language)
+                    clean_l = language.strip()
+                    if clean_l.lower() not in existing_tag_set and (clean_l != DEFAULT_LANGUAGE or len(tmdb_languages) <= 2):
+                        new_tags.append(clean_l)
+                        existing_tag_set.add(clean_l.lower())
+                        tag_added = True
 
-                if new_tags == old_tags:
+                if not tag_added or new_tags == old_tags:
                     if not cfg.IS_DOCKER:
                         log.info(f'⏭️  [标签跳过] 《{series_name}》{from_cache} - 标签无变化')
                     continue
@@ -111,12 +125,7 @@ def run_scraper(sys_config: Config = None):
                     log.info(f'🌍 [标签更新] 《{series_name}》{from_cache} ➔ 设置标签: {new_tags}')
 
                 emby_item['Tags'] = new_tags
-                if 'TagItems' not in emby_item:
-                    emby_item['TagItems'] = []
-
-                for tag in new_tags:
-                    if tag not in old_tags:
-                        emby_item['TagItems'].append({'Name': tag})
+                emby_item['TagItems'] = [{'Name': t} for t in new_tags]
 
                 if 'LockedFields' not in emby_item:
                     emby_item['LockedFields'] = []

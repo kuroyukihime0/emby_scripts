@@ -29,30 +29,32 @@ def process_item_genre(client: EmbyClient, parent_id: str):
     if not series:
         return False
 
-    genres = series.get('Genres', [])
+    raw_genres = series.get('Genres', [])
+    genres = [g.strip() for g in raw_genres if isinstance(g, str) and g.strip()]
     genres_items = series.get('GenreItems', [])
 
-    need_replace = any(genre in genre_mapping or genre in genre_remove for genre in genres) or \
-                   any(g_item.get('Name') in genre_mapping for g_item in genres_items)
+    need_replace = any(g in genre_mapping or g in genre_remove for g in genres) or \
+                   any(g_item.get('Name', '').strip() in genre_mapping for g_item in genres_items)
 
     if need_replace:
         item_name = series.get("Name", parent_id)
-        genres_new = [genre_mapping[genre]['Name'] if genre in genre_mapping else genre for genre in genres]
-        genres_new = list(filter(lambda g: g not in genre_remove and g != '', genres_new))
+        genres_new = [genre_mapping[g]['Name'] if g in genre_mapping else g for g in genres]
+        genres_new = [g for g in genres_new if g not in genre_remove and g != '']
 
-        log.info(f'🎭 [Genre映射] 《{item_name}》 ➔ {genres} ➔ {genres_new}')
-        series['Genres'] = genres_new
+        if genres_new != genres:
+            log.info(f'🎭 [Genre映射] 《{item_name}》 ➔ {genres} ➔ {genres_new}')
+            series['Genres'] = genres_new
 
-        new_genre_items = []
-        for g_item in genres_items:
-            g_name = g_item.get('Name')
-            if g_name in genre_mapping:
-                new_genre_items.append(genre_mapping[g_name])
-            elif g_name not in genre_remove and g_name != '':
-                new_genre_items.append(g_item)
+            new_genre_items = []
+            for g_item in genres_items:
+                g_name = g_item.get('Name', '').strip()
+                if g_name in genre_mapping:
+                    new_genre_items.append(genre_mapping[g_name])
+                elif g_name not in genre_remove and g_name != '':
+                    new_genre_items.append(g_item)
 
-        series['GenreItems'] = new_genre_items
-        return client.update_item(parent_id, series)
+            series['GenreItems'] = new_genre_items
+            return client.update_item(parent_id, series)
 
     return False
 

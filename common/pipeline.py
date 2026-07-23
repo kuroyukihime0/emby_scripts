@@ -70,7 +70,7 @@ def run_pipeline(cfg: Config):
 
                 from_cache = ' ⚡(Cache)' if is_cache else ''
 
-                # --- 模块 A: AlternativeRenamer ---
+                # --- 模块 A: AlternativeRenamer (别名刮削) ---
                 if cfg.ENABLE_ALTERNATIVE_RENAMER and tmdb_data:
                     titles = tmdb_data.get("alternative_titles", {})
                     raw_alt_names = titles.get("titles" if is_movie else "results", []) or []
@@ -84,7 +84,6 @@ def run_pipeline(cfg: Config):
                         old_sort_name = emby_item.get('SortName', '')
                         old_names = [n.strip() for n in old_sort_name.split(name_spliter) if n and n.strip()] if old_sort_name else []
 
-                        # 如果当前 SortName 为空，默认将条目名称 item_name 作为基础名称
                         if not old_names and item_name:
                             old_names = [item_name.strip()]
 
@@ -110,14 +109,21 @@ def run_pipeline(cfg: Config):
                                 emby_item['LockedFields'].append('SortName')
                             item_modified = True
 
-                # --- 模块 B: CountryScraper ---
+                # --- 模块 B: CountryScraper (国家/语言标签) ---
                 if cfg.ENABLE_COUNTRY_SCRAPER and tmdb_data:
                     prod_countries = tmdb_data.get("production_countries", [])
                     spoken_langs = tmdb_data.get("spoken_languages", [])
 
                     if prod_countries or spoken_langs:
-                        old_tags = [tag['Name'] for tag in emby_item.get('TagItems', [])]
-                        new_tags = old_tags[:]
+                        # 兼容提取旧 TagItems 或 Tags 字段，并去空格规范化
+                        raw_tag_items = emby_item.get('TagItems', [])
+                        old_tags = [t['Name'].strip() for t in raw_tag_items if isinstance(t, dict) and 'Name' in t and t['Name'].strip()]
+                        if not old_tags and emby_item.get('Tags'):
+                            old_tags = [t.strip() for t in emby_item['Tags'] if isinstance(t, str) and t.strip()]
+
+                        existing_tag_set = {t.lower() for t in old_tags}
+                        new_tags = list(old_tags)
+                        tag_added = False
 
                         tmdb_countries = []
                         for country in prod_countries:
@@ -126,8 +132,11 @@ def run_pipeline(cfg: Config):
                                 tmdb_countries.append(tag)
 
                         for country in tmdb_countries:
-                            if country not in new_tags and (country != DEFAULT_COUNTRY or len(tmdb_countries) <= 2):
-                                new_tags.append(country)
+                            clean_c = country.strip()
+                            if clean_c.lower() not in existing_tag_set and (clean_c != DEFAULT_COUNTRY or len(tmdb_countries) <= 2):
+                                new_tags.append(clean_c)
+                                existing_tag_set.add(clean_c.lower())
+                                tag_added = True
 
                         tmdb_languages = []
                         for language in spoken_langs:
@@ -136,46 +145,49 @@ def run_pipeline(cfg: Config):
                                 tmdb_languages.append(tag)
 
                         for language in tmdb_languages:
-                            if language not in new_tags and (language != DEFAULT_LANGUAGE or len(tmdb_languages) <= 2):
-                                new_tags.append(language)
+                            clean_l = language.strip()
+                            if clean_l.lower() not in existing_tag_set and (clean_l != DEFAULT_LANGUAGE or len(tmdb_languages) <= 2):
+                                new_tags.append(clean_l)
+                                existing_tag_set.add(clean_l.lower())
+                                tag_added = True
 
-                        if new_tags != old_tags:
+                        if tag_added and new_tags != old_tags:
                             log.info(f"🌍 [标签更新] 《{item_name}》{from_cache} ➔ 设置标签: {new_tags}")
                             emby_item['Tags'] = new_tags
-                            if 'TagItems' not in emby_item:
-                                emby_item['TagItems'] = []
-                            for tag in new_tags:
-                                if tag not in old_tags:
-                                    emby_item['TagItems'].append({'Name': tag})
+                            emby_item['TagItems'] = [{'Name': t} for t in new_tags]
                             if 'LockedFields' not in emby_item:
                                 emby_item['LockedFields'] = []
                             if 'Tags' not in emby_item['LockedFields']:
                                 emby_item['LockedFields'].append('Tags')
                             item_modified = True
 
-                # --- 模块 C: GenreMapper ---
+                # --- 模块 C: GenreMapper (Genre 替换清洗) ---
                 if cfg.ENABLE_GENRE_MAPPER:
-                    genres = emby_item.get('Genres', [])
+                    raw_genres = emby_item.get('Genres', [])
+                    genres = [g.strip() for g in raw_genres if isinstance(g, str) and g.strip()]
                     genres_items = emby_item.get('GenreItems', [])
+
                     need_replace = any(g in genre_mapping or g in genre_remove for g in genres) or \
-                                   any(g_item.get('Name') in genre_mapping for g_item in genres_items)
+                                   any(g_item.get('Name', '').strip() in genre_mapping for g_item in genres_items)
 
                     if need_replace:
                         genres_new = [genre_mapping[g]['Name'] if g in genre_mapping else g for g in genres]
                         genres_new = [g for g in genres_new if g not in genre_remove and g != '']
-                        log.info(f"🎭 [Genre映射] 《{item_name}》 ➔ {genres} ➔ {genres_new}")
-                        emby_item['Genres'] = genres_new
 
-                        new_genre_items = []
-                        for g_item in genres_items:
-                            g_name = g_item.get('Name')
-                            if g_name in genre_mapping:
-                                new_genre_items.append(genre_mapping[g_name])
-                            elif g_name not in genre_remove and g_name != '':
-                                new_genre_items.append(g_item)
+                        if genres_new != genres:
+                            log.info(f"🎭 [Genre映射] 《{item_name}》 ➔ {genres} ➔ {genres_new}")
+                            emby_item['Genres'] = genres_new
 
-                        emby_item['GenreItems'] = new_genre_items
-                        item_modified = True
+                            new_genre_items = []
+                            for g_item in genres_items:
+                                g_name = g_item.get('Name', '').strip()
+                                if g_name in genre_mapping:
+                                    new_genre_items.append(genre_mapping[g_name])
+                                elif g_name not in genre_remove and g_name != '':
+                                    new_genre_items.append(g_item)
+
+                            emby_item['GenreItems'] = new_genre_items
+                            item_modified = True
 
                 # --- 集中一次提交更新 ---
                 if item_modified:

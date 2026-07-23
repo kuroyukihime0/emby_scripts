@@ -50,18 +50,19 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
         season_index = season['IndexNumber']
         tmdb_season = next((s for s in tmdb_seasons if s.get('season_number') == season_index), None)
         if tmdb_season:
-            tmdb_season_name = tmdb_season.get('name')
+            tmdb_season_name = tmdb_season.get('name', '').strip()
             single_season = client.get_item(season_id)
             if not single_season:
                 continue
 
             if 'Name' in single_season:
-                if season_name == tmdb_season_name:
+                current_name = single_season['Name'].strip()
+                if current_name == tmdb_season_name:
                     if not client.config.IS_DOCKER:
                         log.info(f'⏭️  [季名跳过] 《{series_name}》 第{season_index}季{from_cache} - 季名一致 [{season_name}]')
                     continue
                 else:
-                    log.info(f'📺 [季名更新] 《{series_name}》 第{season_index}季{from_cache} ➔ [{season_name}] 更名为 [{tmdb_season_name}]')
+                    log.info(f'📺 [季名更新] 《{series_name}》 第{season_index}季{from_cache} ➔ [{current_name}] 更名为 [{tmdb_season_name}]')
 
                 single_season['Name'] = tmdb_season_name
                 if 'LockedFields' not in single_season:
