@@ -1,7 +1,7 @@
 FROM python:3.11-alpine
 
-# 1. 安装系统依赖（ffmpeg 供 yt-dlp 处理音视频使用，tzdata 供时区设置使用）
-RUN apk add --no-cache ffmpeg tzdata
+# 1. 安装系统依赖（tzdata 供时区设置使用）
+RUN apk add --no-cache tzdata
 
 WORKDIR /app
 
