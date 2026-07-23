@@ -28,14 +28,14 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
         response = client.session.get(url, headers=client.headers, params=params)
         seasons = response.json().get('Items', [])
     except Exception as e:
-        log.error(f"Failed to get seasons for {series_name}: {e}")
+        log.error(f"❌ 获取 《{series_name}》 季节点失败: {e}")
         return 0
 
     tmdb_data, is_cache = fetch_tmdb_detail(client.session, client.config.TMDB_KEY, tmdb_id, is_movie=is_movie)
-    from_cache = ' (fromcache)' if is_cache else ''
+    from_cache = ' ⚡(Cache)' if is_cache else ''
 
     if not tmdb_data or 'seasons' not in tmdb_data:
-        log.error(f'   no season found in tmdb:{tmdb_id} {series_name}')
+        log.error(f'⚠️  [季名跳过] TMDB 未查找到季数据: {tmdb_id} 《{series_name}》')
         return 0
 
     tmdb_seasons = tmdb_data.get('seasons', [])
@@ -44,7 +44,7 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
         season_id = season['Id']
         season_name = season['Name']
         if 'IndexNumber' not in season:
-            log.info(f'   {series_name} {season_name} 没有编号, 跳过')
+            log.info(f'⏭️  [季名跳过] 《{series_name}》 {season_name} 无 IndexNumber 编号')
             continue
 
         season_index = season['IndexNumber']
@@ -58,10 +58,10 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
             if 'Name' in single_season:
                 if season_name == tmdb_season_name:
                     if not client.config.IS_DOCKER:
-                        log.info(f'   {series_name} 第{season_index}季{from_cache} [{season_name}] 季名一致 跳过更新')
+                        log.info(f'⏭️  [季名跳过] 《{series_name}》 第{season_index}季{from_cache} - 季名一致 [{season_name}]')
                     continue
                 else:
-                    log.info(f'   {series_name} 第{season_index}季{from_cache} 将从 [{season_name}] 更名为 [{tmdb_season_name}]')
+                    log.info(f'📺 [季名更新] 《{series_name}》 第{season_index}季{from_cache} ➔ [{season_name}] 更名为 [{tmdb_season_name}]')
 
                 single_season['Name'] = tmdb_season_name
                 if 'LockedFields' not in single_season:
@@ -82,7 +82,7 @@ def run_renamer(sys_config: Config = None):
     total_processed = 0
 
     if not cfg.LIB_NAME:
-        log.error("LIB_NAME is not configured.")
+        log.error("❌ LIB_NAME 未配置，无法处理。")
         return
 
     libs = cfg.LIB_NAME.split(',')
@@ -93,7 +93,7 @@ def run_renamer(sys_config: Config = None):
             continue
 
         series_list = client.get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有 {len(series_list)} 个剧集，开始处理')
+        log.info(f'📁 ════════ [季名重命名: {lib_name}] 共有 {len(series_list)} 个剧集，开始处理 ════════')
 
         for serie in series_list:
             serie_id = serie['Id']
@@ -105,9 +105,9 @@ def run_renamer(sys_config: Config = None):
                 tmdb_id = serie['ProviderIds']['Tmdb']
                 total_processed += rename_seasons(client, serie_id, tmdb_id, serie_name, is_movie)
             else:
-                log.error(f'error:{serie_name} has no tmdb id, skip')
+                log.error(f'⚠️  [季名跳过] 《{serie_name}》 未匹配到 TMDB ID')
 
-    log.info(f'**更新成功 {total_processed} 条')
+    log.info(f'✅ [季名刮削完成] 成功更新 {total_processed} 条条目')
 
 if __name__ == '__main__':
     run_renamer()

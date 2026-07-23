@@ -41,7 +41,7 @@ def run_scraper(sys_config: Config = None):
     process_count = 0
 
     if not cfg.LIB_NAME:
-        log.error("LIB_NAME is not configured.")
+        log.error("❌ LIB_NAME 未配置，无法处理。")
         return
 
     libs = cfg.LIB_NAME.split(',')
@@ -52,7 +52,7 @@ def run_scraper(sys_config: Config = None):
             continue
 
         items = client.get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有 {len(items)} 个 Item, 开始处理')
+        log.info(f'📁 ════════ [国家/语言刮削: {lib_name}] 共有 {len(items)} 个条目，开始处理 ════════')
 
         for item in items:
             item_id = item['Id']
@@ -62,7 +62,7 @@ def run_scraper(sys_config: Config = None):
             if 'ProviderIds' in item and 'Tmdb' in item['ProviderIds']:
                 tmdb_id = item['ProviderIds']['Tmdb']
                 tmdb_data, is_cache = fetch_tmdb_detail(client.session, cfg.TMDB_KEY, tmdb_id, is_movie=is_movie)
-                from_cache = ' (fromcache)' if is_cache else ''
+                from_cache = ' ⚡(Cache)' if is_cache else ''
 
                 if not tmdb_data:
                     continue
@@ -72,7 +72,7 @@ def run_scraper(sys_config: Config = None):
 
                 if not prod_countries and not spoken_langs:
                     if not cfg.IS_DOCKER:
-                        log.info(f'   {item_name}{from_cache} 没有设置国家/语言 跳过')
+                        log.info(f'⏭️  [标签跳过] 《{item_name}》{from_cache} - 未查询到国家/语言')
                     continue
 
                 emby_item = client.get_item(item_id)
@@ -105,10 +105,10 @@ def run_scraper(sys_config: Config = None):
 
                 if new_tags == old_tags:
                     if not cfg.IS_DOCKER:
-                        log.info(f'   {series_name}{from_cache} 标签没有变化 跳过')
+                        log.info(f'⏭️  [标签跳过] 《{series_name}》{from_cache} - 标签无变化')
                     continue
                 else:
-                    log.info(f'   {series_name}{from_cache} 设置标签为 {new_tags}')
+                    log.info(f'🌍 [标签更新] 《{series_name}》{from_cache} ➔ 设置标签: {new_tags}')
 
                 emby_item['Tags'] = new_tags
                 if 'TagItems' not in emby_item:
@@ -126,9 +126,9 @@ def run_scraper(sys_config: Config = None):
                 if client.update_item(item_id, emby_item):
                     process_count += 1
             else:
-                log.info(f'error:{item_name} has no tmdb id, skip')
+                log.info(f'⚠️  [标签跳过] 《{item_name}》未匹配到 TMDB ID，自动跳过')
 
-    log.info(f'**更新成功 {process_count} 条')
+    log.info(f'✅ [国家/语言刮削完成] 成功更新 {process_count} 条条目')
 
 if __name__ == '__main__':
     run_scraper()

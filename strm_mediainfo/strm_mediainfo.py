@@ -24,15 +24,15 @@ def playbackinfo(client: EmbyClient, item_id: str, name: str, delay: int = 10):
     try:
         resp = client.session.post(url, headers=client.headers)
         if resp.status_code == 200:
-            log.info(f'  {name} success')
+            log.info(f'✅ [STRM成功] 《{name}》 MediaInfo 强制刷出成功')
             time.sleep(delay)
             return True
         else:
-            log.error(f'  {name} error: {resp.status_code}')
+            log.error(f'❌ [STRM失败] 《{name}》 响应状态码: {resp.status_code}')
             time.sleep(delay)
             return False
     except Exception as e:
-        log.error(f'  {name} exception: {e}')
+        log.error(f'❌ [STRM异常] 《{name}》 执行异常: {e}')
         time.sleep(delay)
         return False
 
@@ -45,7 +45,7 @@ def process_item(client: EmbyClient, item_id: str, name: str, delay: int = 10):
         if item.get('LocationType') == 'Virtual':
             return False
         if len(item['MediaStreams']) == 0:
-            log.info(f"** 开始处理 {name}")
+            log.info(f"🎬 [STRM刷新] 开始刷新 PlaybackInfo ➔ 《{name}》")
             if not client.config.DRY_RUN:
                 return playbackinfo(client, item_id, name, delay=delay)
     return False
@@ -59,7 +59,7 @@ def process_series(client: EmbyClient, parent_id: str, delay: int = 10):
         response = client.session.get(url, headers=client.headers, params=params)
         seasons = response.json().get('Items', [])
     except Exception as e:
-        log.error(f"Failed to get seasons for parent {parent_id}: {e}")
+        log.error(f"❌ 获取父节点 {parent_id} 季列表失败: {e}")
         return 0
 
     for season in seasons:
@@ -78,7 +78,7 @@ def process_series(client: EmbyClient, parent_id: str, delay: int = 10):
             ep_resp = client.session.get(url, headers=client.headers, params=params)
             episodes = ep_resp.json().get('Items', [])
         except Exception as e:
-            log.error(f"Failed to get episodes for season {season_id}: {e}")
+            log.error(f"❌ 获取 《{series_name}》 {season_name} 列表失败: {e}")
             continue
 
         for ep in episodes:
@@ -97,7 +97,7 @@ def run_strm_mediainfo(sys_config: Config = None):
     process_count = 0
 
     if not cfg.LIB_NAME:
-        log.error("LIB_NAME is not configured.")
+        log.error("❌ LIB_NAME 未配置，无法处理。")
         return
 
     libs = cfg.LIB_NAME.split(',')
@@ -108,7 +108,7 @@ def run_strm_mediainfo(sys_config: Config = None):
             continue
 
         items = client.get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有 {len(items)} 个 item，开始处理')
+        log.info(f'📁 ════════ [STRM MediaInfo: {lib_name}] 共有 {len(items)} 个条目，开始处理 ════════')
         for item in items:
             item_id = item['Id']
             name = item['Name']
@@ -119,7 +119,7 @@ def run_strm_mediainfo(sys_config: Config = None):
             elif item_type == 'Series':
                 process_count += process_series(client, item_id, delay=delay)
 
-    log.info(f'**更新成功 {process_count} 条')
+    log.info(f'✅ [STRM刷新完成] 成功更新 {process_count} 条条目')
 
 if __name__ == '__main__':
     run_strm_mediainfo()

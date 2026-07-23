@@ -37,7 +37,7 @@ def run_renamer(sys_config: Config = None):
     process_count = 0
 
     if not cfg.LIB_NAME:
-        log.error("LIB_NAME is not configured.")
+        log.error("❌ LIB_NAME 未配置，无法处理。")
         return
 
     libs = cfg.LIB_NAME.split(',')
@@ -48,7 +48,7 @@ def run_renamer(sys_config: Config = None):
             continue
 
         items = client.get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有 {len(items)} 个 Item, 开始处理')
+        log.info(f'📁 ════════ [别名刮削: {lib_name}] 共有 {len(items)} 个条目，开始处理 ════════')
 
         for item in items:
             item_id = item['Id']
@@ -58,7 +58,7 @@ def run_renamer(sys_config: Config = None):
             if 'ProviderIds' in item and 'Tmdb' in item['ProviderIds']:
                 tmdb_id = item['ProviderIds']['Tmdb']
                 tmdb_data, is_cache = fetch_tmdb_detail(client.session, cfg.TMDB_KEY, tmdb_id, is_movie=is_movie)
-                from_cache = ' (fromcache)' if is_cache else ''
+                from_cache = ' ⚡(Cache)' if is_cache else ''
 
                 if not tmdb_data:
                     continue
@@ -72,7 +72,7 @@ def run_renamer(sys_config: Config = None):
 
                 if not tmdb_alt_name:
                     if not cfg.IS_DOCKER:
-                        log.info(f'   {item_name}{from_cache} 没有别名 跳过')
+                        log.info(f'⏭️  [别名跳过] 《{item_name}》{from_cache} - 无可增别名')
                     continue
 
                 emby_item = client.get_item(item_id)
@@ -91,10 +91,10 @@ def run_renamer(sys_config: Config = None):
                 sort_name_all = name_spliter.join(res)
                 if old_names == res:
                     if not cfg.IS_DOCKER:
-                        log.info(f'   {series_name}{from_cache} 别名没有增删 跳过')
+                        log.info(f'⏭️  [别名跳过] 《{series_name}》{from_cache} - 别名未变化')
                     continue
                 else:
-                    log.info(f'   {series_name}{from_cache} 增加别名 [{sort_name_all}]')
+                    log.info(f'🏷️  [别名更新] 《{series_name}》{from_cache} ➔ 新增别名: [{sort_name_all}]')
 
                 emby_item['SortName'] = sort_name_all
                 emby_item['ForcedSortName'] = sort_name_all
@@ -106,9 +106,9 @@ def run_renamer(sys_config: Config = None):
                 if client.update_item(item_id, emby_item):
                     process_count += 1
             else:
-                log.info(f'error:{item_name} has no tmdb id, skip')
+                log.info(f'⚠️  [别名跳过] 《{item_name}》未匹配到 TMDB ID，自动跳过')
 
-    log.info(f'**更新成功 {process_count} 条')
+    log.info(f'✅ [别名刮削完成] 成功更新 {process_count} 条条目')
 
 run_renameer = run_renamer
 

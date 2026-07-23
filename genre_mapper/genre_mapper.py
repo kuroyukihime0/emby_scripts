@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from common.config import Config
@@ -16,13 +17,11 @@ config = {
     'DRY_RUN': True,
 }
 
-# 需要替换的 Genre
 genre_mapping = {
     'Sci-Fi & Fantasy': {'Name': '科幻', 'Id': 16630},
     'War & Politics': {'Name': '战争', 'Id': 16718},
 }
 
-# 需要移除的 Genre
 genre_remove = ['']
 
 def process_item_genre(client: EmbyClient, parent_id: str):
@@ -37,11 +36,11 @@ def process_item_genre(client: EmbyClient, parent_id: str):
                    any(g_item.get('Name') in genre_mapping for g_item in genres_items)
 
     if need_replace:
-        log.info(f'{series.get("Name")}:')
+        item_name = series.get("Name", parent_id)
         genres_new = [genre_mapping[genre]['Name'] if genre in genre_mapping else genre for genre in genres]
         genres_new = list(filter(lambda g: g not in genre_remove and g != '', genres_new))
 
-        log.info(f'   {genres} --> {genres_new}')
+        log.info(f'🎭 [Genre映射] 《{item_name}》 ➔ {genres} ➔ {genres_new}')
         series['Genres'] = genres_new
 
         new_genre_items = []
@@ -65,7 +64,7 @@ def run_mapper(sys_config: Config = None):
     process_count = 0
 
     if not cfg.LIB_NAME:
-        log.error("LIB_NAME is not configured.")
+        log.error("❌ LIB_NAME 未配置，无法处理。")
         return
 
     libs = cfg.LIB_NAME.split(',')
@@ -76,13 +75,13 @@ def run_mapper(sys_config: Config = None):
             continue
 
         items = client.get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有 {len(items)} 个 Item，开始处理')
+        log.info(f'📁 ════════ [Genre映射: {lib_name}] 共有 {len(items)} 个条目，开始处理 ════════')
         for item in items:
             item_id = item['Id']
             if process_item_genre(client, item_id):
                 process_count += 1
 
-    log.info(f'**更新成功 {process_count} 条')
+    log.info(f'✅ [Genre映射完成] 成功更新 {process_count} 条条目')
 
 if __name__ == '__main__':
     run_mapper()

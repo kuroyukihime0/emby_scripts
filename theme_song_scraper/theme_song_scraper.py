@@ -38,13 +38,13 @@ def download_file(url, dest):
         if response.status_code == 200:
             with open(dest, "wb") as file:
                 file.write(response.content)
-            log.info(f"{dest} download success")
+            log.info(f"🎵 [主题曲下载成功] ➔ {dest}")
             return True
         else:
-            log.info(f"{dest_dir} no theme song found")
+            log.info(f"⏭️  [主题曲跳过] {dest_dir} 未查询到对应的 Theme 曲目")
             return False
     except Exception as e:
-        log.error(f"Download file exception for {url}: {e}")
+        log.error(f"❌ [主题曲下载异常] {url}: {e}")
         return False
 
 def download_movie_theme_json():
@@ -59,9 +59,9 @@ def load_movie_theme_json():
             with open(json_file, "rb") as f:
                 content = f.read()
                 movie_theme_db = json.loads(content)
-                log.info(f"load lizardbyte.json success, {len(movie_theme_db)} items found")
+                log.info(f"✅ 成功加载 lizardbyte.json，共找到 {len(movie_theme_db)} 条描述信息")
         except Exception as ex:
-            log.error(f"Failed to load lizardbyte.json: {ex}")
+            log.error(f"❌ 加载 lizardbyte.json 失败: {ex}")
 
 def get_tvdb_id(nfo_file, pattern=r'<uniqueid type="tvdb">(.*?)</uniqueid>'):
     try:
@@ -79,7 +79,7 @@ def process_series(series_dirs=None):
     dirs = series_dirs or SERIES_DIR
     for lib in dirs:
         if not os.path.exists(lib):
-            log.info(f"{lib} not found")
+            log.info(f"⚠️  [路径未找到] {lib}")
             continue
         items = os.listdir(lib)
         for item in items:
@@ -177,19 +177,19 @@ def download_theme_for_movies(theme_url, dest_dir, download_backdrops=True):
     youtube_url = theme_url
     childs = os.listdir(dest_dir)
     if theme_file not in childs and theme_file_m4a not in childs:
-        log.info(f"start downloading theme audio for {dest_dir}")
+        log.info(f"🎵 [音频下载开始] {dest_dir}")
         audio = download_audio(youtube_url)
         if audio:
             audio_file = audio_file_path("temp/")
             if audio_file:
                 res = shutil.move(audio_file, dest_dir)
                 count += 1
-                log.info(f"download success to {res}")
+                log.info(f"✅ [音频保存成功] ➔ {res}")
     else:
-        log.info(f"--{dest_dir}/theme.mp3 existed, skip")
+        log.info(f"⏭️  [音频跳过] {dest_dir}/theme.mp3 已存在")
 
     if download_backdrops and backdrop_dir not in childs:
-        log.info(f"start downloading backdrops for {dest_dir}")
+        log.info(f"🎥 [背景视频下载开始] {dest_dir}")
         video = download_video(youtube_url)
         if video:
             video_file = video_file_path("temp/")
@@ -198,9 +198,9 @@ def download_theme_for_movies(theme_url, dest_dir, download_backdrops=True):
                 os.makedirs(backdrop_path, exist_ok=True)
                 res = shutil.move(video_file, os.path.join(backdrop_path, os.path.basename(video_file)))
                 count += 1
-                log.info(f"download success to {res}")
+                log.info(f"✅ [背景视频保存成功] ➔ {res}")
     else:
-        log.info(f"--{dest_dir}/backdrops existed, skip")
+        log.info(f"⏭️  [视频跳过] {dest_dir}/backdrops 已存在")
 
     return count
 
@@ -210,14 +210,14 @@ def process_movies(movie_dirs=None, download_backdrops=True):
     dirs = movie_dirs or MOVIE_DIR
     for lib in dirs:
         if not os.path.exists(lib):
-            log.info(f"{lib} not found")
+            log.info(f"⚠️  [路径未找到] {lib}")
             continue
 
         nfo_dirs = get_dirs_have_nfo(lib)
         for nfo_dir in nfo_dirs:
             childs = os.listdir(nfo_dir)
             if (theme_file in childs or theme_file_m4a in childs) and (backdrop_dir in childs or not download_backdrops):
-                log.info(f"--skip {nfo_dir}")
+                log.info(f"⏭️  [扫描跳过] {nfo_dir}")
             else:
                 nfo_file = next((child for child in childs if child.endswith(".nfo")), None)
                 if not nfo_file:
@@ -235,7 +235,7 @@ def run_theme_scraper(series_dirs=None, movie_dirs=None, download_backdrops=True
     c1 = process_series(series_dirs)
     c2 = process_movies(movie_dirs, download_backdrops)
     total = c1 + c2
-    log.info(f'download {total} theme songs for total')
+    log.info(f'✅ [主题曲刮削完成] 共下载 {total} 个音频/视频资源')
     return total
 
 if __name__ == '__main__':

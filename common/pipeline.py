@@ -35,7 +35,7 @@ def run_pipeline(cfg: Config):
     libs = cfg.LIB_NAME.split(',')
     total_updated = 0
 
-    log.info(f"🚀 === [Pipeline] 启动全流水线任务 (DryRun={cfg.DRY_RUN}) ===")
+    log.info(f"🚀 ══════════════════ [Pipeline 启动集中流水线] (DryRun={cfg.DRY_RUN}) ══════════════════")
 
     try:
         for lib_name in libs:
@@ -45,7 +45,7 @@ def run_pipeline(cfg: Config):
                 continue
 
             items = client.get_lib_items(parent_id)
-            log.info(f"📁 === [Pipeline] 开始处理媒体库 [{lib_name}]，包含 {len(items)} 个条目 ===")
+            log.info(f"📁 ════════ [媒体库: {lib_name}] 包含 {len(items)} 个条目 ════════")
             status_tracker.update_stats(processed_delta=len(items))
 
             for item in items:
@@ -91,7 +91,7 @@ def run_pipeline(cfg: Config):
 
                         sort_name_all = name_spliter.join(res)
                         if old_names != res:
-                            log.info(f"🏷️ [{item_name}]{from_cache} 增加别名: [{sort_name_all}]")
+                            log.info(f"🏷️  [别名更新] 《{item_name}》{from_cache} ➔ 增加别名: [{sort_name_all}]")
                             emby_item['SortName'] = sort_name_all
                             emby_item['ForcedSortName'] = sort_name_all
                             if 'LockedFields' not in emby_item:
@@ -130,7 +130,7 @@ def run_pipeline(cfg: Config):
                                 new_tags.append(language)
 
                         if new_tags != old_tags:
-                            log.info(f"🌍 [{item_name}]{from_cache} 设置标签为: {new_tags}")
+                            log.info(f"🌍 [标签更新] 《{item_name}》{from_cache} ➔ 设置标签: {new_tags}")
                             emby_item['Tags'] = new_tags
                             if 'TagItems' not in emby_item:
                                 emby_item['TagItems'] = []
@@ -153,7 +153,7 @@ def run_pipeline(cfg: Config):
                     if need_replace:
                         genres_new = [genre_mapping[g]['Name'] if g in genre_mapping else g for g in genres]
                         genres_new = [g for g in genres_new if g not in genre_remove and g != '']
-                        log.info(f"🎭 [{item_name}] 修改 Genre: {genres} --> {genres_new}")
+                        log.info(f"🎭 [Genre映射] 《{item_name}》 ➔ {genres} ➔ {genres_new}")
                         emby_item['Genres'] = genres_new
 
                         new_genre_items = []
@@ -172,15 +172,15 @@ def run_pipeline(cfg: Config):
                     if client.update_item(item_id, emby_item):
                         total_updated += 1
                         status_tracker.update_stats(updated_delta=1)
-                        log.info(f"✅ [{item_name}] 成功合并集中更新提交！")
+                        log.info(f"✅ [集中提交成功] 《{item_name}》元数据更新已写入 Emby")
 
                 # --- 模块 D: SeasonRenamer (仅在剧集且启用时) ---
                 if is_series and cfg.ENABLE_SEASON_RENAMER and tmdb_id:
                     rename_seasons(client, item_id, tmdb_id, item_name, is_movie=False)
 
-        log.info(f"🎉 === [Pipeline] 全流水线执行完毕，共集中更新 {total_updated} 条条目 ===")
+        log.info(f"🎉 ══════════════════ [Pipeline 顺利完成] 共集中提交更新 {total_updated} 条条目 ══════════════════")
     except Exception as e:
-        log.error(f"❌ [Pipeline] 执行过程中出现异常: {e}", exc_info=True)
+        log.error(f"❌ [Pipeline] 执行过程中出现严重异常: {e}", exc_info=True)
         status_tracker.update_stats(errors_delta=1)
     finally:
         status_tracker.set_idle(cfg.RUN_INTERVAL_HOURS)

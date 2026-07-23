@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from common.config import Config
@@ -8,7 +9,6 @@ from common.emby_client import EmbyClient
 
 log = setup_logger('delete_episode_genre')
 
-# 本地配置兼容
 config = {
     'EMBY_SERVER': 'http://xxx:8096',
     'API_KEY': '',
@@ -26,7 +26,7 @@ def remove_genre_for_episodes(client: EmbyClient, parent_id: str):
         response = client.session.get(url, headers=client.headers, params=params)
         seasons = response.json().get('Items', [])
     except Exception as e:
-        log.error(f"Failed to get seasons for parent {parent_id}: {e}")
+        log.error(f"❌ 获取父节点 {parent_id} 季列表失败: {e}")
         return 0
 
     for season in seasons:
@@ -46,7 +46,7 @@ def remove_genre_for_episodes(client: EmbyClient, parent_id: str):
             ep_resp = client.session.get(url, headers=client.headers, params=params)
             episodes = ep_resp.json().get('Items', [])
         except Exception as e:
-            log.error(f"Failed to get episodes for season {season_id}: {e}")
+            log.error(f"❌ 获取 《{series_name}》 {season_name} 分集列表失败: {e}")
             continue
 
         for ep in episodes:
@@ -59,7 +59,7 @@ def remove_genre_for_episodes(client: EmbyClient, parent_id: str):
 
             if ep_item.get('Genres'):
                 genre = ep_item['Genres']
-                log.info(f'   {series_name} {season_name} {episode_name} 清除 genre {genre}')
+                log.info(f'🧹 [Genre清理] 《{series_name}》 {season_name} {episode_name} ➔ 清除单集 Genre: {genre}')
                 ep_item['Genres'] = []
                 ep_item['GenreItems'] = []
 
@@ -76,7 +76,7 @@ def run_deleter(sys_config: Config = None):
     total_processed = 0
 
     if not cfg.LIB_NAME:
-        log.error("LIB_NAME is not configured.")
+        log.error("❌ LIB_NAME 未配置，无法处理。")
         return
 
     libs = cfg.LIB_NAME.split(',')
@@ -87,12 +87,12 @@ def run_deleter(sys_config: Config = None):
             continue
 
         series = client.get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有 {len(series)} 个剧集，开始处理')
+        log.info(f'📁 ════════ [单集Genre清理: {lib_name}] 共有 {len(series)} 个剧集，开始处理 ════════')
         for serie in series:
             serie_id = serie['Id']
             total_processed += remove_genre_for_episodes(client, serie_id)
 
-    log.info(f'**更新成功 {total_processed} 条')
+    log.info(f'✅ [Genre清理完成] 成功更新 {total_processed} 条单集')
 
 run_delete_genre = run_deleter
 
