@@ -1,95 +1,47 @@
 import os
+import sys
 import time
+import threading
 
-import logging
-from alternative_renamer import alternative_renamer
-from country_scraper import country_scraper
-from genre_mapper import genre_mapper
-from season_renamer import season_renamer
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-ENV_RUN_INTERVAL_HOURS = int(os.environ['RUN_INTERVAL_HOURS'])
-ENV_ENABLE_ALTERNATIVE_RENAMER = (os.getenv('ENABLE_ALTERNATIVE_RENAMER') in['True','true'])
-ENV_ENABLE_COUNTRY_SCAPTER = (os.getenv('ENABLE_COUNTRY_SCAPTER') in['True','true'])
-ENV_ENABLE_GENRE_MAPPER = (os.getenv('ENABLE_GENRE_MAPPER') in['True','true'])
-ENV_ENABLE_SEASON_RENAMER = (os.getenv('ENABLE_SEASON_RENAMER') in['True','true'])
+from common.config import Config
+from common.logger import setup_logger
+from common.pipeline import run_pipeline
+from common.web_server import start_web_server
 
-
-ENV_EMBY_HOST = os.environ["EMBY_HOST"]
-ENV_EMBY_API_KEY = os.environ["EMBY_API_KEY"]
-ENV_EMBY_USER_ID = os.environ["EMBY_USER_ID"]
-ENV_TMDB_KEY = os.environ["TMDB_KEY"]
-ENV_LIB_NAME = os.environ["LIB_NAME"]
-ENV_DRY_RUN = (os.getenv('DRY_RUN') in['True','true'])
-ENV_ADD_HANT_TITLE = (os.getenv('ADD_HANT_TITLE') in['True','true'])
-
-log = logging.getLogger('entrance')
-log.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-fh = logging.FileHandler('logs.log', encoding='utf-8')
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(formatter)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-log.addHandler(ch)
-log.addHandler(fh)
-
-
-def get_or_default(value, default=None):
-    return value if value else default
-
-def work():
-    try:
-        if ENV_ENABLE_ALTERNATIVE_RENAMER:
-            log.info('START ALTERNATIVE_RENAMER')
-            alternative_renamer.run_renameer()
-        else:
-            log.info('SKIP ALTERNATIVE_RENAMER')
-        if ENV_ENABLE_SEASON_RENAMER:
-            log.info('START SEASON_RENAMER')
-            season_renamer.run_renamer()
-        else:
-            log.info('SKIP SEASON_RENAMER')
-        if ENV_ENABLE_COUNTRY_SCAPTER:
-            log.info('START COUNTRY_SCAPTER')
-            country_scraper.run_scraper()
-        else:
-            log.info('SKIP COUNTRY_SCAPTER')
-        if ENV_ENABLE_GENRE_MAPPER:
-            log.info('START GENRE_MAPPER')
-            genre_mapper.run_mapper()
-        else:
-            log.info('SKIP GENRE_MAPPER')
-    except Exception as ex:
-        log.error(str(ex))
-
+log = setup_logger('docker_entrance')
 
 def work_loop():
-    while True:
-        work()
-        interval_hour = ENV_RUN_INTERVAL_HOURS if ENV_RUN_INTERVAL_HOURS else 24
-        time.sleep(interval_hour * 3600)
+    cfg = Config()
+    cfg.IS_DOCKER = True
 
+    # 基础配置校验
+    assert cfg.EMBY_SERVER, "❌ EMBY_HOST / EMBY_SERVER 环境变量未配置！"
+    assert cfg.API_KEY, "❌ EMBY_API_KEY 环境变量未配置！"
+    assert cfg.USER_ID, "❌ EMBY_USER_ID 环境变量未配置！"
+    assert cfg.LIB_NAME, "❌ LIB_NAME 环境变量未配置！"
+
+    log.info("🚀 启动 Emby Scripts Docker 调度入口 (Pipeline 流水线模式)...")
+    log.info(f"⚙️ 配置 - 服务器: {cfg.EMBY_SERVER}, 媒体库: {cfg.LIB_NAME}, 预览模式(DryRun): {cfg.DRY_RUN}")
+
+    # 若开启 Web 控制台，则在后台线程启动 Web 服务
+    if cfg.ENABLE_WEB:
+        web_thread = threading.Thread(target=start_web_server, args=(cfg.WEB_PORT,), daemon=True)
+        web_thread.start()
+        log.info(f"🌐 Web 管理控制台已启用，可通过 http://<HOST>:{cfg.WEB_PORT} 访问")
+    else:
+        log.info("🔒 Web 管理控制台当前处于关闭状态 (ENABLE_WEB=false)")
+
+    while True:
+        try:
+            run_pipeline(cfg)
+        except Exception as ex:
+            log.error(f"❌ 调度循环捕获异常: {ex}", exc_info=True)
+
+        interval_hours = cfg.RUN_INTERVAL_HOURS if cfg.RUN_INTERVAL_HOURS > 0 else 24
+        log.info(f"⌛ 本轮任务完成，休眠 {interval_hours} 小时后自动进行下一轮调度...")
+        time.sleep(interval_hours * 3600)
 
 if __name__ == "__main__":
-    modules = [alternative_renamer, country_scraper,
-               genre_mapper, season_renamer]
-    assert ENV_EMBY_HOST
-    assert ENV_EMBY_API_KEY
-    assert ENV_EMBY_USER_ID
-    assert ENV_LIB_NAME
-    
-    for module in modules:
-        config = module.config
-
-        config['EMBY_SERVER'] = ENV_EMBY_HOST if ENV_EMBY_HOST else ''
-        config['API_KEY'] = ENV_EMBY_API_KEY if ENV_EMBY_API_KEY else ''
-        config['USER_ID'] = ENV_EMBY_USER_ID if ENV_EMBY_USER_ID else ''
-        config['TMDB_KEY'] = ENV_TMDB_KEY if ENV_TMDB_KEY else ''
-        config['LIB_NAME'] = ENV_LIB_NAME if ENV_LIB_NAME else ''
-        config['DRY_RUN'] = ENV_DRY_RUN
-        config['ADD_HANT_TITLE'] = ENV_ADD_HANT_TITLE
-        config['IS_DOCKER'] = True
-
     work_loop()

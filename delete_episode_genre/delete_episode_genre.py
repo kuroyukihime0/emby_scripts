@@ -1,119 +1,100 @@
-import requests
-import json
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# 设置 Emby 服务器地址和 API 密钥
-EMBY_SERVER = 'http://xxx:8096'
-# 设置 API 密钥
-API_KEY = ''
-# 设置 USERID
-USER_ID = ''
+from common.config import Config
+from common.logger import setup_logger
+from common.emby_client import EmbyClient
 
-# 设置库名, 多个时用,隔开(只支持剧集库, 填电影库后果自负)
-LIB_NAME = 'A,B'
-# True 时为测试, False 实际写入
-DRY_RUN = True
+log = setup_logger('delete_episode_genre')
 
-
-headers = {
-    'X-Emby-Token': API_KEY,
-    'Content-Type': 'application/json',
+# 本地配置兼容
+config = {
+    'EMBY_SERVER': 'http://xxx:8096',
+    'API_KEY': '',
+    'USER_ID': '',
+    'LIB_NAME': '',
+    'DRY_RUN': True,
 }
 
-session = requests.session()
-
-process_count = 0
-
-
-def remove_genre_for_episodes(parent_id):
-    global process_count
-    # 获取剧集列表
+def remove_genre_for_episodes(client: EmbyClient, parent_id: str):
+    process_count = 0
+    url = f"{client.config.EMBY_SERVER.rstrip('/')}/emby/Items"
     params = {'ParentId': parent_id}
-    response = session.get(f'{EMBY_SERVER}/emby/Items',
-                           headers=headers, params=params)
 
-    seasons = response.json()['Items']
-    for seasons in seasons:
-        seaeson_id = seasons['Id']
-        season_name = seasons['Name']
-        series_name = seasons['SeriesName']
-        # 获取分集ID
+    try:
+        response = client.session.get(url, headers=client.headers, params=params)
+        seasons = response.json().get('Items', [])
+    except Exception as e:
+        log.error(f"Failed to get seasons for parent {parent_id}: {e}")
+        return 0
+
+    for season in seasons:
+        season_id = season.get('Id')
+        season_name = season.get('Name')
+        series_name = season.get('SeriesName')
+
         params = {
-            'ParentId': seaeson_id,
+            'ParentId': season_id,
             'Fields': 'Genres,Overview',
             'IncludeItemTypes': 'Episode',
             'Recursive': 'true',
             'SortBy': 'SortName',
             'SortOrder': 'Ascending'
         }
-        epoisode_response = session.get(
-            f'{EMBY_SERVER}/emby/Items', headers=headers, params=params)
-        episodes = epoisode_response.json()['Items']
-        for episode in episodes:
-            episode_id = episode['Id']
-            episode_name = episode['Name']
-            params = {'Ids': episode_id}
-            single_epoisode_response = session.get(
-                f'{EMBY_SERVER}/emby/Users/{USER_ID}/Items/{episode_id}?Fields=ChannelMappingInfo&api_key={API_KEY}', headers=headers, params=params)
-            episode = single_epoisode_response.json()
-            if 'Genres' in episode:
-                if len(episode['Genres']) != 0:
-                    genre = episode['Genres']
-                    print(
-                        f'   {series_name} {season_name} {episode_name} 清除genre {genre}')
-                    episode['Genres'] = []
-                    episode['GenreItems'] = []
-                    if not DRY_RUN:
-                        update_url = f'{EMBY_SERVER}/emby/Items/{episode_id}?api_key={API_KEY}&reqformat=json'
-                        response = session.post(
-                            update_url, json=episode, headers=headers)
-                        if response.status_code == 200 or response.status_code == 204:
-                            process_count += 1
-                            print(
-                                f'      Successfully updated episode {episode_id} : {response.status_code} {response.content}')
-                        else:
-                            print(
-                                f'      Failed to update episode {episode_id}: {response.status_code} {response.content}')
+        try:
+            ep_resp = client.session.get(url, headers=client.headers, params=params)
+            episodes = ep_resp.json().get('Items', [])
+        except Exception as e:
+            log.error(f"Failed to get episodes for season {season_id}: {e}")
+            continue
 
+        for ep in episodes:
+            episode_id = ep.get('Id')
+            episode_name = ep.get('Name')
 
-def get_library_id(name):
-    if not name:
+            ep_item = client.get_item(episode_id)
+            if not ep_item:
+                continue
+
+            if ep_item.get('Genres'):
+                genre = ep_item['Genres']
+                log.info(f'   {series_name} {season_name} {episode_name} 清除 genre {genre}')
+                ep_item['Genres'] = []
+                ep_item['GenreItems'] = []
+
+                if client.update_item(episode_id, ep_item):
+                    process_count += 1
+
+    return process_count
+
+def run_deleter(sys_config: Config = None):
+    cfg = sys_config or Config()
+    cfg.load_script_config(config)
+
+    client = EmbyClient(cfg)
+    total_processed = 0
+
+    if not cfg.LIB_NAME:
+        log.error("LIB_NAME is not configured.")
         return
-    res = session.get(
-        f'{EMBY_SERVER}/emby/Library/VirtualFolders', headers=headers)
-    lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
-    if not lib_id:
-        raise KeyError(f'library: {name} not exists, check it')
-    return lib_id[0] if lib_id else None
 
-
-def get_lib_items(parent_id):
-    params = {'ParentId': parent_id,
-              #   'HasTmdbId': True,
-              'fields': 'ProviderIds'
-              }
-    response = session.get(f'{EMBY_SERVER}/emby/Items',
-                           headers=headers, params=params)
-    items = response.json()['Items']
-    items_folder = [item for item in items if item["Type"] == "Folder"]
-    items = [item for item in items if item["Type"] != "Folder"]
-    for folder in items_folder:
-        items = items + get_lib_items(folder['Id'])
-
-    return items
-
-
-def run_deleter():
-    libs = LIB_NAME.split(',')
+    libs = cfg.LIB_NAME.split(',')
     for lib_name in libs:
-        parent_id = get_library_id(lib_name.strip())
-        series = get_lib_items(parent_id)
-        print(f'**库 {lib_name} 中共有{len(series)} 个剧集，开始处理')
+        lib_name = lib_name.strip()
+        parent_id = client.get_library_id(lib_name)
+        if not parent_id:
+            continue
+
+        series = client.get_lib_items(parent_id)
+        log.info(f'**库 {lib_name} 中共有 {len(series)} 个剧集，开始处理')
         for serie in series:
             serie_id = serie['Id']
-            remove_genre_for_episodes(serie_id)
+            total_processed += remove_genre_for_episodes(client, serie_id)
 
-    print(f'**更新成功{process_count}条')
+    log.info(f'**更新成功 {total_processed} 条')
+
+run_delete_genre = run_deleter
 
 if __name__ == '__main__':
     run_deleter()
-    

@@ -1,133 +1,88 @@
-import requests
-import json
-import logging
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from common.config import Config
+from common.logger import setup_logger
+from common.emby_client import EmbyClient
+
+log = setup_logger('genre_mapper')
 
 config = {
-    # 设置 Emby 服务器地址
-    'EMBY_SERVER' :'http://xxx:8096',
-    # 设置 Emby 服务器APIKEY和userid
-    'API_KEY' : '',
-    'USER_ID' : '',
-    # 库名, 多个时英文逗号分隔, 只支持剧集/电影库
-    'LIB_NAME' : '',
-    # True 时为预览效果, False 实际写入
-    'DRY_RUN' : True,
+    'EMBY_SERVER': 'http://xxx:8096',
+    'API_KEY': '',
+    'USER_ID': '',
+    'LIB_NAME': '',
+    'DRY_RUN': True,
 }
 
-
-# 需要替换的Genre
+# 需要替换的 Genre
 genre_mapping = {
-    'Sci-Fi & Fantasy': {
-        'Name': '科幻', 'Id': 16630},
-    'War & Politics': {
-        'Name': '战争', 'Id': 16718},
+    'Sci-Fi & Fantasy': {'Name': '科幻', 'Id': 16630},
+    'War & Politics': {'Name': '战争', 'Id': 16718},
 }
-# 需要移除的Genre
+
+# 需要移除的 Genre
 genre_remove = ['']
 
+def process_item_genre(client: EmbyClient, parent_id: str):
+    series = client.get_item(parent_id)
+    if not series:
+        return False
 
-def emby_headers(): 
-    return {
-    'X-Emby-Token': config['API_KEY'],
-    'Content-Type': 'application/json',
-}
+    genres = series.get('Genres', [])
+    genres_items = series.get('GenreItems', [])
 
-session = requests.session()
-
-process_count = 0
-
-log = logging.getLogger('genre_mapper')
-log.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-fh = logging.FileHandler('logs.log', encoding='utf-8')
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(formatter)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-log.addHandler(ch)
-log.addHandler(fh)
-
-
-def remove_genre_for_episodes(parent_id):
-    global process_count
-    # 获取剧集列表
-    params = {'Ids': parent_id}
-    series_detail = session.get(
-        f"{config['EMBY_SERVER']}/emby/Users/{config['USER_ID']}/Items/{parent_id}?Fields=ChannelMappingInfo&api_key={config['API_KEY']}", headers=emby_headers(), params=params)
-    series = series_detail.json()
-    genres = series['Genres']
-    genres_items = series['GenreItems']
-    need_replace = False
-    for genre in genres:
-        if genre in genre_mapping or genre in genre_remove:
-            need_replace = True
-    for genre_item in genres_items:
-        if genre_item['Name'] in genre_mapping:
-            need_replace = True
+    need_replace = any(genre in genre_mapping or genre in genre_remove for genre in genres) or \
+                   any(g_item.get('Name') in genre_mapping for g_item in genres_items)
 
     if need_replace:
-        log.info(f'{series["Name"]}:')
-        genres_new = [genre_mapping[genre]['Name']
-                      if genre in genre_mapping else genre for genre in genres]
-        genres_new = list(
-            filter(lambda genre: genre not in genre_remove, genres_new))
-        log.info('   '+str(series['Genres'])+"-->"+str(genres_new))
+        log.info(f'{series.get("Name")}:')
+        genres_new = [genre_mapping[genre]['Name'] if genre in genre_mapping else genre for genre in genres]
+        genres_new = list(filter(lambda g: g not in genre_remove and g != '', genres_new))
+
+        log.info(f'   {genres} --> {genres_new}')
         series['Genres'] = genres_new
 
-        series['GenreItems'] = [genre_mapping[genre_item['Name']] if genre_item['Name']
-                                in genre_mapping else genre_item for genre_item in genres_items]
-        series['GenreItems'] = list(
-            filter(lambda genre_item: genre_item['Name'] not in genre_remove, series['GenreItems']))
-        if not config['DRY_RUN']:
-            update_url = f"{config['EMBY_SERVER']}/emby/Items/{parent_id}?api_key={config['API_KEY']}&reqformat=json"
-            response = session.post(
-                update_url, json=series, headers=emby_headers())
-            if response.status_code == 200 or response.status_code == 204:
-                process_count += 1
-            else:
-                log.error(f'      Failed to update series {parent_id}: {response.status_code} {response.content}')
+        new_genre_items = []
+        for g_item in genres_items:
+            g_name = g_item.get('Name')
+            if g_name in genre_mapping:
+                new_genre_items.append(genre_mapping[g_name])
+            elif g_name not in genre_remove and g_name != '':
+                new_genre_items.append(g_item)
 
+        series['GenreItems'] = new_genre_items
+        return client.update_item(parent_id, series)
 
-def get_library_id(name):
-    if not name:
+    return False
+
+def run_mapper(sys_config: Config = None):
+    cfg = sys_config or Config()
+    cfg.load_script_config(config)
+
+    client = EmbyClient(cfg)
+    process_count = 0
+
+    if not cfg.LIB_NAME:
+        log.error("LIB_NAME is not configured.")
         return
-    res = session.get(
-        f"{config['EMBY_SERVER']}/emby/Library/VirtualFolders", headers=emby_headers())
-    lib_id = [i['ItemId'] for i in res.json() if i['Name'] == name]
-    if not lib_id:
-        raise KeyError(f'library: {name} not exists, check it')
-    return lib_id[0] if lib_id else None
 
-
-def get_lib_items(parent_id):
-    params = {'ParentId': parent_id,
-              #   'HasTmdbId': True,
-              'fields': 'ProviderIds'
-              }
-    response = session.get(f"{config['EMBY_SERVER']}/emby/Items",
-                           headers=emby_headers(), params=params)
-    items = response.json()['Items']
-    items_folder = [item for item in items if item["Type"] == "Folder"]
-    items = [item for item in items if item["Type"] != "Folder"]
-    for folder in items_folder:
-        items = items + get_lib_items(folder['Id'])
-
-    return items
-
-def run_mapper():
-    libs = config['LIB_NAME'].split(',')
+    libs = cfg.LIB_NAME.split(',')
     for lib_name in libs:
-        parent_id = get_library_id(lib_name.strip())
-        series = get_lib_items(parent_id)
-        log.info(f'**库 {lib_name} 中共有{len(series)} 个剧集，开始处理')
-        for serie in series:
-            serie_id = serie['Id']
-            remove_genre_for_episodes(serie_id)
+        lib_name = lib_name.strip()
+        parent_id = client.get_library_id(lib_name)
+        if not parent_id:
+            continue
 
-    log.info(f'**更新成功{process_count}条')
+        items = client.get_lib_items(parent_id)
+        log.info(f'**库 {lib_name} 中共有 {len(items)} 个 Item，开始处理')
+        for item in items:
+            item_id = item['Id']
+            if process_item_genre(client, item_id):
+                process_count += 1
+
+    log.info(f'**更新成功 {process_count} 条')
 
 if __name__ == '__main__':
     run_mapper()
-    

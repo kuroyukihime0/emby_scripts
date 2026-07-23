@@ -4,15 +4,15 @@ services:
     container_name: emby_scripts_3888
     image: hush114514/emby_scripts
     network_mode: bridge
-    # OPTIONAL: 挂载tmdb缓存到容器外
-    # volumes:
-    #   - /your_localpath/tmdb_alt_name.json:/app/tmdb_alt_name.json
-    #   - /your_localpath/country.json:/app/country.json
-    #   - /your_localpath/tmdb.json:/app/tmdb.json
+    ports:
+      - "3888:3888" # 若启用 Web 控制台，请暴露端口
+    # 推荐: 挂载数据库缓存与数据目录到宿主机外部保存
+    volumes:
+      - /your_localpath/data:/app/data
     environment:
       - TZ=Asia/Shanghai
       # EMBY地址
-      - EMBY_HOST= http://xxx:8092
+      - EMBY_HOST=http://xxx:8092
       # EMBY的API_KEY
       - EMBY_API_KEY=
       # EMBY的USERID
@@ -23,12 +23,16 @@ services:
       - LIB_NAME=
       # DRY_RUN = true时为预览, false实际运行
       - DRY_RUN=true
-      # 运行间隔
+      # 运行间隔(小时)
       - RUN_INTERVAL_HOURS=24
       # 是否增加港台标题
       - ADD_HANT_TITLE=true
-      # 是否启用各个模块
+      # 是否启用 Web 管理控制台 (默认 false)
+      - ENABLE_WEB=true
+      - WEB_PORT=3888
+      - WEB_PASSWORD=your_password_here # 可选密码认证
+      # 是否启用各个功能模块
       - ENABLE_ALTERNATIVE_RENAMER=true
-      - ENABLE_COUNTRY_SCAPTER=true
+      - ENABLE_COUNTRY_SCRAPER=true
       - ENABLE_GENRE_MAPPER=true
       - ENABLE_SEASON_RENAMER=true
