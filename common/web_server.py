@@ -383,8 +383,12 @@ HTML_PAGE = r"""<!DOCTYPE html>
                 <div class="card-value" id="nextRunTime" style="font-size: 1.25rem;">-</div>
             </div>
             <div class="card">
-                <div class="card-title">集中处理 Item 数</div>
-                <div class="card-value" id="updatedItemsCount">0</div>
+                <div class="card-title">变更更新数</div>
+                <div class="card-value" id="updatedItemsCount" style="color: var(--success-color);">0</div>
+            </div>
+            <div class="card">
+                <div class="card-title">无变更跳过数</div>
+                <div class="card-value" id="skippedItemsCount" style="color: var(--text-sub);">0</div>
             </div>
         </div>
 
@@ -441,6 +445,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
                 document.getElementById('lastRunTime').innerText = data.last_run_time || '尚未执行';
                 document.getElementById('nextRunTime').innerText = data.next_run_time || '按定时间隔调度';
                 document.getElementById('updatedItemsCount').innerText = data.stats.updated_items || 0;
+                document.getElementById('skippedItemsCount').innerText = data.stats.skipped_items || 0;
 
             } catch (err) {
                 console.error('Fetch status error:', err);

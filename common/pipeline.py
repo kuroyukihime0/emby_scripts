@@ -18,10 +18,11 @@ def run_pipeline(cfg: Config):
     """
     高效统一合并流水线：
     1. 单次遍历媒体库
-    2. 单次 GET 拉取 Item 详情
+    2. 单次 GET 拉取 Item 详情（复用批量 List 返回，零单独 GET 请求）
     3. 单次并发/缓存拉取 TMDB 描述
     4. 内存中合并应用 AlternativeRenamer, CountryScraper, GenreMapper 修改
     5. 集中一次 POST 提交数据更新
+    6. 按媒体库精确统计有变更更新数与无变更跳过数
     """
     status_tracker.set_running("Unified Pipeline")
     status_tracker.reset_stats()
@@ -33,7 +34,8 @@ def run_pipeline(cfg: Config):
         return
 
     libs = cfg.LIB_NAME.split(',')
-    total_updated = 0
+    total_updated_all = 0
+    total_skipped_all = 0
 
     log.info(f"🚀 ══════════════════ [Pipeline 启动集中流水线] (DryRun={cfg.DRY_RUN}) ══════════════════")
 
@@ -45,8 +47,11 @@ def run_pipeline(cfg: Config):
                 continue
 
             items = client.get_lib_items(parent_id)
-            log.info(f"📁 ════════ [媒体库: {lib_name}] 包含 {len(items)} 个条目 ════════")
+            log.info(f"📁 ════════ [媒体库: {lib_name}] 包含 {len(items)} 个条目，开始处理 ════════")
             status_tracker.update_stats(processed_delta=len(items))
+
+            lib_updated = 0
+            lib_skipped = 0
 
             for item in items:
                 item_id = item['Id']
@@ -54,7 +59,7 @@ def run_pipeline(cfg: Config):
                 is_movie = item.get('Type') == 'Movie'
                 is_series = item.get('Type') == 'Series'
 
-                # 直接复用一次性拉取出的全量 item 对象（消除单 Item 的额外 GET 请求）
+                # 直接复用一次性拉取出的全量 item 对象（零单条 GET 请求）
                 emby_item = item
 
                 item_modified = False
@@ -113,7 +118,6 @@ def run_pipeline(cfg: Config):
                     spoken_langs = tmdb_data.get("spoken_languages", [])
 
                     if prod_countries or spoken_langs:
-                        # 兼容提取旧 TagItems 或 Tags 字段，并去空格规范化
                         raw_tag_items = emby_item.get('TagItems', [])
                         old_tags = [t['Name'].strip() for t in raw_tag_items if isinstance(t, dict) and 'Name' in t and t['Name'].strip()]
                         if not old_tags and emby_item.get('Tags'):
@@ -187,18 +191,33 @@ def run_pipeline(cfg: Config):
                             emby_item['GenreItems'] = new_genre_items
                             item_modified = True
 
-                # --- 集中一次提交更新 ---
+                # --- 模块 D: SeasonRenamer (仅在剧集且启用时) ---
+                season_updated = 0
+                if is_series and cfg.ENABLE_SEASON_RENAMER and tmdb_id:
+                    season_updated = rename_seasons(client, item_id, tmdb_id, item_name, is_movie=False)
+
+                # 判定本条目是否有变更更新
                 if item_modified:
                     if client.update_item(item_id, emby_item):
-                        total_updated += 1
+                        lib_updated += 1
                         status_tracker.update_stats(updated_delta=1)
                         log.info(f"✅ [集中提交成功] 《{item_name}》元数据更新已写入 Emby")
+                    else:
+                        lib_skipped += 1
+                        status_tracker.update_stats(skipped_delta=1)
+                elif season_updated > 0:
+                    lib_updated += 1
+                    status_tracker.update_stats(updated_delta=1)
+                else:
+                    lib_skipped += 1
+                    status_tracker.update_stats(skipped_delta=1)
 
-                # --- 模块 D: SeasonRenamer (仅在剧集且启用时) ---
-                if is_series and cfg.ENABLE_SEASON_RENAMER and tmdb_id:
-                    rename_seasons(client, item_id, tmdb_id, item_name, is_movie=False)
+            total_updated_all += lib_updated
+            total_skipped_all += lib_skipped
 
-        log.info(f"🎉 ══════════════════ [Pipeline 顺利完成] 共集中提交更新 {total_updated} 条条目 ══════════════════")
+            log.info(f"📊 ════════ [媒体库: {lib_name} 处理完成] 统计 ➔ 总计: {len(items)} | 变更更新: {lib_updated} | 无变更跳过: {lib_skipped} ════════")
+
+        log.info(f"🎉 ══════════════════ [Pipeline 全顺利完成] 全库统计 ➔ 变更更新: {total_updated_all} | 无变更跳过: {total_skipped_all} ══════════════════")
     except Exception as e:
         log.error(f"❌ [Pipeline] 执行过程中出现严重异常: {e}", exc_info=True)
         status_tracker.update_stats(errors_delta=1)

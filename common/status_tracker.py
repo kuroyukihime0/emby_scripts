@@ -12,6 +12,7 @@ class TaskStatusTracker:
         self.stats = {
             "processed_items": 0,
             "updated_items": 0,
+            "skipped_items": 0,
             "errors": 0,
         }
 
@@ -31,10 +32,11 @@ class TaskStatusTracker:
             else:
                 self.next_run_time = None
 
-    def update_stats(self, processed_delta=0, updated_delta=0, errors_delta=0):
+    def update_stats(self, processed_delta=0, updated_delta=0, skipped_delta=0, errors_delta=0):
         with self._lock:
             self.stats["processed_items"] += processed_delta
             self.stats["updated_items"] += updated_delta
+            self.stats["skipped_items"] += skipped_delta
             self.stats["errors"] += errors_delta
 
     def reset_stats(self):
@@ -42,6 +44,7 @@ class TaskStatusTracker:
             self.stats = {
                 "processed_items": 0,
                 "updated_items": 0,
+                "skipped_items": 0,
                 "errors": 0,
             }
 
