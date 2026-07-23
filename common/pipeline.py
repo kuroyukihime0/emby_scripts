@@ -82,16 +82,26 @@ def run_pipeline(cfg: Config):
                     if cn_alt_names:
                         name_spliter = ' / '
                         old_sort_name = emby_item.get('SortName', '')
-                        old_names = old_sort_name.split(name_spliter) if old_sort_name else []
+                        old_names = [n.strip() for n in old_sort_name.split(name_spliter) if n and n.strip()] if old_sort_name else []
 
-                        res = [name for name in old_names if name]
+                        # 如果当前 SortName 为空，默认将条目名称 item_name 作为基础名称
+                        if not old_names and item_name:
+                            old_names = [item_name.strip()]
+
+                        existing_set = set(old_names)
+                        res = list(old_names)
+                        new_added = False
+
                         for new_name in cn_alt_names:
-                            if new_name not in res and not invalid_char_in_str(new_name):
-                                res.append(new_name)
+                            clean_name = new_name.strip()
+                            if clean_name and clean_name not in existing_set and not invalid_char_in_str(clean_name):
+                                res.append(clean_name)
+                                existing_set.add(clean_name)
+                                new_added = True
 
                         sort_name_all = name_spliter.join(res)
-                        if old_names != res:
-                            log.info(f"🏷️  [别名更新] 《{item_name}》{from_cache} ➔ 增加别名: [{sort_name_all}]")
+                        if new_added and sort_name_all != old_sort_name:
+                            log.info(f"🏷️  [别名更新] 《{item_name}》{from_cache} ➔ 新增别名后: [{sort_name_all}]")
                             emby_item['SortName'] = sort_name_all
                             emby_item['ForcedSortName'] = sort_name_all
                             if 'LockedFields' not in emby_item:

@@ -82,19 +82,30 @@ def run_renamer(sys_config: Config = None):
                 name_spliter = ' / '
                 series_name = emby_item.get('Name', item_name)
 
-                old_names = emby_item.get('SortName', '').split(name_spliter) if emby_item.get('SortName') else []
-                res = [n for n in old_names if n]
+                old_sort_name = emby_item.get('SortName', '')
+                old_names = [n.strip() for n in old_sort_name.split(name_spliter) if n and n.strip()] if old_sort_name else []
+
+                if not old_names and series_name:
+                    old_names = [series_name.strip()]
+
+                existing_set = set(old_names)
+                res = list(old_names)
+                new_added = False
+
                 for new_name in tmdb_alt_name:
-                    if new_name not in res and not invalid_char_in_str(new_name):
-                        res.append(new_name)
+                    clean_name = new_name.strip()
+                    if clean_name and clean_name not in existing_set and not invalid_char_in_str(clean_name):
+                        res.append(clean_name)
+                        existing_set.add(clean_name)
+                        new_added = True
 
                 sort_name_all = name_spliter.join(res)
-                if old_names == res:
+                if not new_added or sort_name_all == old_sort_name:
                     if not cfg.IS_DOCKER:
                         log.info(f'⏭️  [别名跳过] 《{series_name}》{from_cache} - 别名未变化')
                     continue
                 else:
-                    log.info(f'🏷️  [别名更新] 《{series_name}》{from_cache} ➔ 新增别名: [{sort_name_all}]')
+                    log.info(f'🏷️  [别名更新] 《{series_name}》{from_cache} ➔ 新增别名后: [{sort_name_all}]')
 
                 emby_item['SortName'] = sort_name_all
                 emby_item['ForcedSortName'] = sort_name_all
