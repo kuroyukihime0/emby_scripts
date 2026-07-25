@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 from opencc import OpenCC
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -26,8 +27,17 @@ arr_invalid_char = ['ā', 'á', 'ǎ', 'à', 'ē', 'é', 'ě', 'è', 'ī', 'í', 
                     'ō', 'ó', 'ǒ', 'ò', 'ū', 'ú', 'ǔ', 'ù', 'ǖ', 'ǘ', 'ǚ', 'ǜ',
                     'デ', 'ô', 'â', 'Ś', 'ü', 'É']
 
-def invalid_char_in_str(name):
-    return any(invalid_char in name for invalid_char in arr_invalid_char)
+# 阿拉伯文/维吾尔文/泰文/希伯来文等小语种特殊字符过滤正则
+NON_TARGET_LANG_REGEX = re.compile(r'[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF\u0E00-\u0E7F\u0590-\u05FF]')
+
+def invalid_char_in_str(name: str) -> bool:
+    if not name:
+        return True
+    if any(invalid_char in name for invalid_char in arr_invalid_char):
+        return True
+    if NON_TARGET_LANG_REGEX.search(name):
+        return True
+    return False
 
 def run_renamer(sys_config: Config = None):
     cfg = sys_config or Config()
@@ -92,8 +102,14 @@ def run_renamer(sys_config: Config = None):
                 res = list(old_names)
                 new_added = False
 
-                for new_name in tmdb_alt_name:
-                    clean_name = new_name.strip()
+                # 预清洗：若别名字符串内部带有 '/'，先打散为单别名独立比对
+                clean_alt_list = []
+                for raw_alt in tmdb_alt_name:
+                    if raw_alt:
+                        parts = [p.strip() for p in raw_alt.replace('/', ' / ').split('/') if p and p.strip()]
+                        clean_alt_list.extend(parts)
+
+                for clean_name in clean_alt_list:
                     if clean_name and clean_name not in existing_set and not invalid_char_in_str(clean_name):
                         res.append(clean_name)
                         existing_set.add(clean_name)

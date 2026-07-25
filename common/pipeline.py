@@ -92,8 +92,14 @@ def run_pipeline(cfg: Config):
                         res = list(old_names)
                         new_added = False
 
-                        for new_name in cn_alt_names:
-                            clean_name = new_name.strip()
+                        # 预清洗：若 TMDB 别名字符串内部带有 '/'，先打散为独立单别名进行去重比对
+                        clean_alt_list = []
+                        for raw_alt in cn_alt_names:
+                            if raw_alt:
+                                parts = [p.strip() for p in raw_alt.replace('/', ' / ').split('/') if p and p.strip()]
+                                clean_alt_list.extend(parts)
+
+                        for clean_name in clean_alt_list:
                             if clean_name and clean_name not in existing_set and not invalid_char_in_str(clean_name):
                                 res.append(clean_name)
                                 existing_set.add(clean_name)
