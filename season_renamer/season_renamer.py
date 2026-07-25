@@ -38,7 +38,6 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
     from_cache = ' ⚡(Cache)' if is_cache else ''
 
     if not tmdb_data or 'seasons' not in tmdb_data:
-        log.error(f'⚠️  [季名跳过] TMDB 未查找到季数据: {tmdb_id} 《{series_name}》')
         return 0
 
     tmdb_seasons = tmdb_data.get('seasons', [])
@@ -47,7 +46,6 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
         season_id = season['Id']
         season_name = season.get('Name', '')
         if 'IndexNumber' not in season:
-            log.info(f'⏭️  [季名跳过] 《{series_name}》 {season_name} 无 IndexNumber 编号')
             continue
 
         season_index = season['IndexNumber']
@@ -57,8 +55,6 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
             current_name = season.get('Name', '').strip()
 
             if current_name == tmdb_season_name:
-                if not client.config.IS_DOCKER:
-                    log.info(f'⏭️  [季名跳过] 《{series_name}》 第{season_index}季{from_cache} - 季名一致 [{season_name}]')
                 continue
             else:
                 log.info(f'📺 [季名更新] 《{series_name}》 第{season_index}季{from_cache} ➔ [{current_name}] 更名为 [{tmdb_season_name}]')
