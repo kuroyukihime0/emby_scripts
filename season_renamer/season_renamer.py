@@ -54,8 +54,7 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
         tmdb_season = next((s for s in tmdb_seasons if s.get('season_number') == season_index), None)
         if tmdb_season:
             tmdb_season_name = tmdb_season.get('name', '').strip()
-            single_season = season
-            current_name = single_season.get('Name', '').strip()
+            current_name = season.get('Name', '').strip()
 
             if current_name == tmdb_season_name:
                 if not client.config.IS_DOCKER:
@@ -64,13 +63,24 @@ def rename_seasons(client: EmbyClient, parent_id: str, tmdb_id: str, series_name
             else:
                 log.info(f'📺 [季名更新] 《{series_name}》 第{season_index}季{from_cache} ➔ [{current_name}] 更名为 [{tmdb_season_name}]')
 
-            single_season['Name'] = tmdb_season_name
-            if 'LockedFields' not in single_season:
-                single_season['LockedFields'] = []
-            if 'Name' not in single_season['LockedFields']:
-                single_season['LockedFields'].append('Name')
+            # 关键安全修复：写回更新前拉取包含所有字段的季节点全量 Item
+            full_season = client.get_item(season_id)
+            if full_season:
+                full_season['Name'] = tmdb_season_name
+                if 'LockedFields' not in full_season:
+                    full_season['LockedFields'] = []
+                if 'Name' not in full_season['LockedFields']:
+                    full_season['LockedFields'].append('Name')
+                target_season = full_season
+            else:
+                target_season = season
+                target_season['Name'] = tmdb_season_name
+                if 'LockedFields' not in target_season:
+                    target_season['LockedFields'] = []
+                if 'Name' not in target_season['LockedFields']:
+                    target_season['LockedFields'].append('Name')
 
-            if client.update_item(season_id, single_season):
+            if client.update_item(season_id, target_season):
                 process_count += 1
 
     return process_count

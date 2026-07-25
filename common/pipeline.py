@@ -18,11 +18,8 @@ def run_pipeline(cfg: Config):
     """
     高效统一合并流水线：
     1. 单次遍历媒体库
-    2. 单次 GET 拉取 Item 详情（复用批量 List 返回，零单独 GET 请求）
-    3. 单次并发/缓存拉取 TMDB 描述
-    4. 内存中合并应用 AlternativeRenamer, CountryScraper, GenreMapper 修改
-    5. 集中一次 POST 提交数据更新
-    6. 按媒体库精确统计有变更更新数与无变更跳过数
+    2. 快速内存增量对比，无变更项跳过（零额外网络开销）
+    3. 仅对确有修改需要提交的条目拉取全量 Item 详情进行安全写入，100% 保护 Overview/年份等元数据完好无损
     """
     status_tracker.set_running("Unified Pipeline")
     status_tracker.reset_stats()
@@ -59,10 +56,11 @@ def run_pipeline(cfg: Config):
                 is_movie = item.get('Type') == 'Movie'
                 is_series = item.get('Type') == 'Series'
 
-                # 直接复用一次性拉取出的全量 item 对象（零单条 GET 请求）
+                # 基础信息复用轻量 item 对象进行增量对比
                 emby_item = item
 
                 item_modified = False
+                modifications = {}
                 tmdb_data = None
                 is_cache = False
 
@@ -104,12 +102,9 @@ def run_pipeline(cfg: Config):
                         sort_name_all = name_spliter.join(res)
                         if new_added and sort_name_all != old_sort_name:
                             log.info(f"🏷️  [别名更新] 《{item_name}》{from_cache} ➔ 新增别名后: [{sort_name_all}]")
-                            emby_item['SortName'] = sort_name_all
-                            emby_item['ForcedSortName'] = sort_name_all
-                            if 'LockedFields' not in emby_item:
-                                emby_item['LockedFields'] = []
-                            if 'SortName' not in emby_item['LockedFields']:
-                                emby_item['LockedFields'].append('SortName')
+                            modifications['SortName'] = sort_name_all
+                            modifications['ForcedSortName'] = sort_name_all
+                            modifications['LockSortName'] = True
                             item_modified = True
 
                 # --- 模块 B: CountryScraper (国家/语言标签) ---
@@ -155,12 +150,9 @@ def run_pipeline(cfg: Config):
 
                         if tag_added and new_tags != old_tags:
                             log.info(f"🌍 [标签更新] 《{item_name}》{from_cache} ➔ 设置标签: {new_tags}")
-                            emby_item['Tags'] = new_tags
-                            emby_item['TagItems'] = [{'Name': t} for t in new_tags]
-                            if 'LockedFields' not in emby_item:
-                                emby_item['LockedFields'] = []
-                            if 'Tags' not in emby_item['LockedFields']:
-                                emby_item['LockedFields'].append('Tags')
+                            modifications['Tags'] = new_tags
+                            modifications['TagItems'] = [{'Name': t} for t in new_tags]
+                            modifications['LockTags'] = True
                             item_modified = True
 
                 # --- 模块 C: GenreMapper (Genre 替换清洗) ---
@@ -178,7 +170,7 @@ def run_pipeline(cfg: Config):
 
                         if genres_new != genres:
                             log.info(f"🎭 [Genre映射] 《{item_name}》 ➔ {genres} ➔ {genres_new}")
-                            emby_item['Genres'] = genres_new
+                            modifications['Genres'] = genres_new
 
                             new_genre_items = []
                             for g_item in genres_items:
@@ -188,7 +180,7 @@ def run_pipeline(cfg: Config):
                                 elif g_name not in genre_remove and g_name != '':
                                     new_genre_items.append(g_item)
 
-                            emby_item['GenreItems'] = new_genre_items
+                            modifications['GenreItems'] = new_genre_items
                             item_modified = True
 
                 # --- 模块 D: SeasonRenamer (仅在剧集且启用时) ---
@@ -198,10 +190,34 @@ def run_pipeline(cfg: Config):
 
                 # 判定本条目是否有变更更新
                 if item_modified:
-                    if client.update_item(item_id, emby_item):
+                    # 关键安全修复：在写回 POST 之前，先拉取包含所有字段（Overview/年份/海报等）的全量真实 Item
+                    full_item = client.get_item(item_id)
+                    if full_item:
+                        if 'SortName' in modifications:
+                            full_item['SortName'] = modifications['SortName']
+                            full_item['ForcedSortName'] = modifications['ForcedSortName']
+                        if 'Tags' in modifications:
+                            full_item['Tags'] = modifications['Tags']
+                            full_item['TagItems'] = modifications['TagItems']
+                        if 'Genres' in modifications:
+                            full_item['Genres'] = modifications['Genres']
+                            full_item['GenreItems'] = modifications['GenreItems']
+
+                        if 'LockedFields' not in full_item:
+                            full_item['LockedFields'] = []
+                        if modifications.get('LockSortName') and 'SortName' not in full_item['LockedFields']:
+                            full_item['LockedFields'].append('SortName')
+                        if modifications.get('LockTags') and 'Tags' not in full_item['LockedFields']:
+                            full_item['LockedFields'].append('Tags')
+
+                        target_to_update = full_item
+                    else:
+                        target_to_update = emby_item
+
+                    if client.update_item(item_id, target_to_update):
                         lib_updated += 1
                         status_tracker.update_stats(updated_delta=1)
-                        log.info(f"✅ [集中提交成功] 《{item_name}》元数据更新已写入 Emby")
+                        log.info(f"✅ [安全提交成功] 《{item_name}》完整元数据已写入 Emby")
                     else:
                         lib_skipped += 1
                         status_tracker.update_stats(skipped_delta=1)
